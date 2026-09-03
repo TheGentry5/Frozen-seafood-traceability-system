@@ -1,0 +1,22 @@
+{
+  "name": "frozen-seafood-trace-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "冷冻海产品溯源系统 - Vue3 前端",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@fortawesome/fontawesome-free": "^6.5.2",
+    "axios": "^1.7.2",
+    "echarts": "^5.5.0",
+    "vue": "^3.4.29",
+    "vue-router": "^4.3.3"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.5",
+    "vite": "^5.3.1"
+  }
+}
