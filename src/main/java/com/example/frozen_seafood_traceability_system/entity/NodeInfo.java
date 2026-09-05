@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import lombok.Data;
 
@@ -22,6 +23,8 @@ public class NodeInfo {
 
     private String nodeCode;
 
+    /** 密码仅允许从请求体反序列化写入，任何响应都不回传该字段 */
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
 
     private String nodeName;

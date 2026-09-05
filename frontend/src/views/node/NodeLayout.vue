@@ -99,6 +99,10 @@ export default {
         toast('请输入原密码与新密码', 'warn')
         return
       }
+      if (newPwd.length < 6 || newPwd.length > 20) {
+        toast('新密码长度须为 6~20 位', 'warn')
+        return
+      }
       if (newPwd !== confirmPwd) {
         toast('两次输入的新密码不一致', 'warn')
         return

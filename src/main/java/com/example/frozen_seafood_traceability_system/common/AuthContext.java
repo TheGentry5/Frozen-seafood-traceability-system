@@ -7,6 +7,8 @@ public final class AuthContext {
 
     private static final ThreadLocal<Principal> HOLDER = new ThreadLocal<>();
 
+    private static final ThreadLocal<String> TOKEN_HOLDER = new ThreadLocal<>();
+
     private AuthContext() {
     }
 
@@ -16,6 +18,15 @@ public final class AuthContext {
 
     public static Principal get() {
         return HOLDER.get();
+    }
+
+    /** 当前请求的 token（LoginInterceptor 写入） */
+    public static void setToken(String token) {
+        TOKEN_HOLDER.set(token);
+    }
+
+    public static String getToken() {
+        return TOKEN_HOLDER.get();
     }
 
     /** 是否管理员登录 */
@@ -42,5 +53,6 @@ public final class AuthContext {
 
     public static void clear() {
         HOLDER.remove();
+        TOKEN_HOLDER.remove();
     }
 }

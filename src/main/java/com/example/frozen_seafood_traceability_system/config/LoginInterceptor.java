@@ -38,6 +38,7 @@ public class LoginInterceptor implements HandlerInterceptor {
             write401(response);
             return false;
         }
+        AuthContext.setToken(token);
         AuthContext.set(principal);
         return true;
     }

@@ -19,15 +19,15 @@ public interface NodeInfoMapper extends BaseMapper<NodeInfo> {
 
     /** 管理端：分页 + 企业名/类型/省/市 组合模糊，联出中文省市名 */
     IPage<NodeInfo> selectPageWithArea(IPage<?> page,
-                                       @Param("nodeName") String nodeName,
-                                       @Param("nodeType") Integer nodeType,
-                                       @Param("provinceCode") String provinceCode,
-                                       @Param("cityCode") String cityCode);
+            @Param("nodeName") String nodeName,
+            @Param("nodeType") Integer nodeType,
+            @Param("provinceCode") String provinceCode,
+            @Param("cityCode") String cityCode);
 
     /** 级联：按 node_type（+可选省市）查启用中的上游企业列表 */
     List<NodeInfo> upstreamList(@Param("nodeType") Integer nodeType,
-                                @Param("provinceCode") String provinceCode,
-                                @Param("cityCode") String cityCode);
+            @Param("provinceCode") String provinceCode,
+            @Param("cityCode") String cityCode);
 
     /** 统计：12 个月注册数量（year 可为 null，缺省当年） */
     List<Map<String, Object>> selectMonthTrend(@Param("year") Integer year);
