@@ -1,13 +1,17 @@
 package com.example.frozen_seafood_traceability_system.service.impl;
 
+import java.util.ArrayList;
 import java.util.List;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import com.example.frozen_seafood_traceability_system.common.BizCode;
-import com.example.frozen_seafood_traceability_system.common.BizException;
 import com.example.frozen_seafood_traceability_system.entity.City;
 import com.example.frozen_seafood_traceability_system.entity.Province;
+import com.example.frozen_seafood_traceability_system.mapper.CityMapper;
+import com.example.frozen_seafood_traceability_system.mapper.ProvinceMapper;
 import com.example.frozen_seafood_traceability_system.service.AreaService;
 
 /**
@@ -16,17 +20,25 @@ import com.example.frozen_seafood_traceability_system.service.AreaService;
 @Service
 public class AreaServiceImpl implements AreaService {
 
+    @Autowired
+    private ProvinceMapper provinceMapper;
+
+    @Autowired
+    private CityMapper cityMapper;
+
+    // 查省份
     @Override
     public List<Province> provinces() {
-        throw todo();
+        return provinceMapper.selectList(new LambdaQueryWrapper<Province>().orderByAsc(Province::getId));
     }
 
+    // 查市
     @Override
     public List<City> cities(String provinceCode) {
-        throw todo();
-    }
-
-    private BizException todo() {
-        return new BizException(BizCode.NOT_IMPLEMENTED, "接口待业务实现（编码阶段）");
+        if (provinceCode == null || provinceCode.isEmpty()) {
+            return new ArrayList<>();
+        }
+        return cityMapper.selectList(new LambdaQueryWrapper<City>().eq(City::getProvinceCode, provinceCode)
+                .orderByAsc(City::getId));
     }
 }

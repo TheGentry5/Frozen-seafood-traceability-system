@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.example.frozen_seafood_traceability_system.mapper.ProcBatchMapper">
-    <!-- 待补充：selectPageForNode / waitConfirmList / selectSelectableByNode（docs/开发实施文档.md 附录 D） -->
+    <!-- 待补充：selectPageForNode / waitConfirmList（docs/开发实施文档.md 附录 D） -->
+
+    <!-- 加工可选批号（已确认 3） -->
+    <select id="selectSelectableByNode" resultType="com.example.frozen_seafood_traceability_system.entity.ProcBatch">
+        SELECT id, batch_code, product_name FROM proc_batch
+        WHERE node_id = #{nodeId} AND status = 3 ORDER BY create_time DESC
+    </select>
 </mapper>
