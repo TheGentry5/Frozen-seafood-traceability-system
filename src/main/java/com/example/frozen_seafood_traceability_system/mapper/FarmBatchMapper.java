@@ -21,6 +21,9 @@ public interface FarmBatchMapper extends BaseMapper<FarmBatch> {
                                        @Param("status") Integer status,
                                        @Param("keyword") String keyword);
 
+    /** 详情：按 id 联出本企业名 */
+    FarmBatch selectByIdForNode(@Param("id") Long id);
+
     /** 级联：某养殖企业"已发布"批号下拉 */
     List<FarmBatch> selectReleasedByNode(@Param("nodeId") Long nodeId);
 }

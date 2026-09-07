@@ -15,7 +15,7 @@ import com.example.frozen_seafood_traceability_system.mapper.ProvinceMapper;
 import com.example.frozen_seafood_traceability_system.service.AreaService;
 
 /**
- * 骨架占位：区域级联待业务实现（docs/开发实施文档.md §8 任务 5）。
+ * 区域级联业务实现（docs/开发实施文档.md §8 任务 5）。
  */
 @Service
 public class AreaServiceImpl implements AreaService {

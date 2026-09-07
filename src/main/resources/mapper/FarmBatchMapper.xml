@@ -1,7 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.example.frozen_seafood_traceability_system.mapper.FarmBatchMapper">
-    <!-- 待补充：selectPageForNode（docs/开发实施文档.md 附录 D） -->
+    <!-- 本企业批号分页（status 为空时排除已下架 3），联出本企业名 -->
+    <select id="selectPageForNode" resultType="com.example.frozen_seafood_traceability_system.entity.FarmBatch">
+        SELECT b.*, n.node_name
+        FROM farm_batch b
+        LEFT JOIN node_info n ON b.node_id = n.id
+        WHERE b.node_id = #{nodeId}
+        <if test="status != null">AND b.status = #{status}</if>
+        <if test="status == null">AND b.status &lt;&gt; 3</if>
+        <if test="keyword != null and keyword != ''">
+            AND (b.batch_code LIKE CONCAT('%', #{keyword}, '%') OR b.product_name LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        ORDER BY b.create_time DESC
+    </select>
+
+    <!-- 详情：按 id 联出本企业名 -->
+    <select id="selectByIdForNode" resultType="com.example.frozen_seafood_traceability_system.entity.FarmBatch">
+        SELECT b.*, n.node_name
+        FROM farm_batch b
+        LEFT JOIN node_info n ON b.node_id = n.id
+        WHERE b.id = #{id}
+    </select>
 
     <!-- 养殖可选批号（已发布 2） -->
     <select id="selectReleasedByNode" resultType="com.example.frozen_seafood_traceability_system.entity.FarmBatch">

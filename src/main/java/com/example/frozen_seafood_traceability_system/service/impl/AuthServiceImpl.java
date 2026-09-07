@@ -23,7 +23,7 @@ import com.example.frozen_seafood_traceability_system.mapper.NodeInfoMapper;
 import com.example.frozen_seafood_traceability_system.service.AuthService;
 
 /**
- * 骨架占位：登录 / 用户共通方法待业务实现（docs/开发实施文档.md §8 任务 3）。
+ * 登录 / 用户共通方法业务实现（docs/开发实施文档.md §8 任务 3）。
  */
 @Service
 public class AuthServiceImpl implements AuthService {
