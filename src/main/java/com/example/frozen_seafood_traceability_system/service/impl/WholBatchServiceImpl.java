@@ -257,11 +257,22 @@ public class WholBatchServiceImpl extends ServiceImpl<WholBatchMapper, WholBatch
         }
     }
 
-    // 批号产品详情
+    // 批号产品详情（联出上游加工批号与企业名）
     @Override
     public WholBatch detailMy(Long id) {
         requireWhol();
-        return requireOwned(id);
+        if (id == null) {
+            throw new BizException(BizCode.BAD_REQUEST, "缺少批号 id");
+        }
+
+        WholBatch batch = baseMapper.selectByIdForNode(id);
+        if (batch == null) {
+            throw new BizException(BizCode.BAD_REQUEST, "批号不存在");
+        }
+        if (!Objects.equals(batch.getNodeId(), AuthContext.nodeId())) {
+            throw new BizException(BizCode.FORBIDDEN, "无权查看他人批号");
+        }
+        return batch;
     }
 
     // 供加工企业查看"有哪些批发批号正等待本企业确认进场"

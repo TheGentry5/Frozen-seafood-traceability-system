@@ -27,8 +27,8 @@ public interface RetaBatchService extends IService<RetaBatch> {
     /** 批发端"下游进场确认"待办列表（零售商批号） */
     PageResult<RetaBatch> waitConfirmForWhol(Long wholNodeId, String keyword, long page, long size);
 
-    /** 批发端确认零售批号进场：置"已确认"并同事务生成溯源码（docs/开发实施文档.md §5.4） */
-    void confirmByWhol(Long id, Long wholNodeId);
+    /** 批发端确认零售批号进场：置"已确认"并同事务生成溯源码，返回生成的溯源码（docs/开发实施文档.md §5.4） */
+    String confirmByWhol(Long id, Long wholNodeId);
 
     /** 消费者溯源：按溯源码查询 */
     RetaBatch findByTraceCode(String traceCode);

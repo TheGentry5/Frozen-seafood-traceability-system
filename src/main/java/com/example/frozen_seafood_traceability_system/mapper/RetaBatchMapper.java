@@ -21,6 +21,9 @@ public interface RetaBatchMapper extends BaseMapper<RetaBatch> {
                                        @Param("status") Integer status,
                                        @Param("keyword") String keyword);
 
+    /** 详情：按 id 联出上游（批发）批号与企业名 */
+    RetaBatch selectByIdForNode(@Param("id") Long id);
+
     /** 批发端"下游进场确认"待办：进场为指定批发商且状态=待确认 */
     IPage<RetaBatch> waitConfirmList(IPage<?> page,
                                      @Param("inNodeId") Long inNodeId,

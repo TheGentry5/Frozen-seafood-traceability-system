@@ -2,4 +2,47 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.example.frozen_seafood_traceability_system.mapper.RetaBatchMapper">
     <!-- 待补充：selectPageForNode / waitConfirmList / selectSelectableByNode / selectByTraceCode（docs/开发实施文档.md 附录 D） -->
+    <!-- 本企业批号分页（status 为空时排除已下架 4），联出上游加工批号与企业名 -->
+    <select id="selectPageForNode" resultType="com.example.frozen_seafood_traceability_system.entity.RetaBatch">
+        SELECT b.*, ub.batch_code AS in_batch_code, un.node_name AS in_node_name
+        FROM reta_batch b
+        LEFT JOIN whol_batch ub ON b.in_batch_id = ub.id
+        LEFT JOIN node_info un   ON b.in_node_id = un.id
+        WHERE b.node_id = #{nodeId}
+        <if test="status != null">AND b.status = #{status}</if>
+        <if test="status == null">AND b.status &lt;&gt; 4</if>
+        <if test="keyword != null and keyword != ''">
+            AND (b.batch_code LIKE CONCAT('%', #{keyword}, '%') OR b.product_name LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        ORDER BY b.create_time DESC
+    </select>
+
+    <!-- 详情：按 id 联出上游批发批号与企业名 -->
+    <select id="selectByIdForNode" resultType="com.example.frozen_seafood_traceability_system.entity.RetaBatch">
+        SELECT b.*, ub.batch_code AS in_batch_code, un.node_name AS in_node_name
+        FROM reta_batch b
+        LEFT JOIN whol_batch ub ON b.in_batch_id = ub.id
+        LEFT JOIN node_info un  ON b.in_node_id = un.id
+        WHERE b.id = #{id}
+    </select>
+
+    <!-- 批发端"下游进场确认"待办：进场为本加工企业且状态=待确认(2)，联出零售商名；keyword 模糊零售商名 -->
+    <select id="waitConfirmList" resultType="com.example.frozen_seafood_traceability_system.entity.RetaBatch">
+        SELECT b.*, n.node_name
+        FROM reta_batch b
+        JOIN node_info n ON b.node_id = n.id
+        WHERE b.in_node_id = #{inNodeId} AND b.status = 2
+        <if test="keyword != null and keyword != ''">AND n.node_name LIKE CONCAT('%', #{keyword}, '%')</if>
+        ORDER BY b.create_time DESC
+    </select>
+
+    <!-- 消费者溯源：按溯源码取零售批号，联出零售商名(node_name)与上游批发商名(in_node_name) -->
+    <select id="selectByTraceCode" resultType="com.example.frozen_seafood_traceability_system.entity.RetaBatch">
+        SELECT b.*, rn.node_name, un.node_name AS in_node_name
+        FROM reta_batch b
+        LEFT JOIN node_info rn ON b.node_id = rn.id
+        LEFT JOIN node_info un ON b.in_node_id = un.id
+        WHERE b.trace_code = #{traceCode}
+    </select>
+
 </mapper>

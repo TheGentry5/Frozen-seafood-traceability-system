@@ -85,8 +85,7 @@ public class WholBatchController {
     }
 
     @PutMapping("/confirm/{id}")
-    public Result<Void> confirm(@PathVariable Long id) {
-        retaBatchService.confirmByWhol(id, AuthContext.nodeId());
-        return Result.ok();
+    public Result<String> confirm(@PathVariable Long id) {
+        return Result.ok(retaBatchService.confirmByWhol(id, AuthContext.nodeId()));
     }
 }

@@ -21,6 +21,9 @@ public interface WholBatchMapper extends BaseMapper<WholBatch> {
                                        @Param("status") Integer status,
                                        @Param("keyword") String keyword);
 
+    /** 详情：按 id 联出上游（加工）批号与企业名 */
+    WholBatch selectByIdForNode(@Param("id") Long id);
+
     /** 加工端"下游进场确认"待办：进场为指定加工企业且状态=待确认，可按下游批发商名模糊 */
     IPage<WholBatch> waitConfirmList(IPage<?> page,
                                      @Param("inNodeId") Long inNodeId,

@@ -16,6 +16,15 @@
         ORDER BY b.create_time DESC
     </select>
 
+    <!-- 详情：按 id 联出上游加工批号与企业名 -->
+    <select id="selectByIdForNode" resultType="com.example.frozen_seafood_traceability_system.entity.WholBatch">
+        SELECT b.*, ub.batch_code AS in_batch_code, un.node_name AS in_node_name
+        FROM whol_batch b
+        LEFT JOIN proc_batch ub ON b.in_batch_id = ub.id
+        LEFT JOIN node_info un  ON b.in_node_id = un.id
+        WHERE b.id = #{id}
+    </select>
+
     <!-- 加工端"下游进场确认"待办：进场为本加工企业且状态=待确认(2)，联出批发商名；keyword 模糊批发商名 -->
     <select id="waitConfirmList" resultType="com.example.frozen_seafood_traceability_system.entity.WholBatch">
         SELECT b.*, n.node_name

@@ -148,7 +148,7 @@ public class FarmBatchServiceImpl extends ServiceImpl<FarmBatchMapper, FarmBatch
                 .in(ProcBatch::getStatus, StatusConst.BATCH_NEW,
                         StatusConst.BATCH_WAIT_CONFIRM, StatusConst.BATCH_CONFIRMED));
         if (refs != null && refs > 0) {
-            throw new BizException(BizCode.FORBIDDEN, "该批号已被下游引用，暂不能下架");
+            throw new BizException(BizCode.BAD_REQUEST, "该批号已被下游引用，暂不能下架");
         }
 
         FarmBatch update = new FarmBatch();
