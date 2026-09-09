@@ -4,6 +4,15 @@
     <!-- 待业务编码阶段按 docs/开发实施文档.md 附录 D 补充：
          selectPageWithArea / selectMonthTrend / selectProvinceDist / selectTypeDist -->
 
+    <!-- 单企业详情：联出省/市中文名 -->
+    <select id="selectByIdWithArea" resultType="com.example.frozen_seafood_traceability_system.entity.NodeInfo">
+        SELECT n.*, p.province_name, c.city_name
+        FROM node_info n
+        LEFT JOIN province p ON n.province_code = p.province_code
+        LEFT JOIN city c ON n.city_code = c.city_code
+        WHERE n.id = #{id}
+    </select>
+
     <!-- 上游企业下拉：启用中 + 类型过滤 + 可选省市过滤 -->
     <select id="upstreamList" resultType="com.example.frozen_seafood_traceability_system.entity.NodeInfo">
         SELECT * FROM node_info

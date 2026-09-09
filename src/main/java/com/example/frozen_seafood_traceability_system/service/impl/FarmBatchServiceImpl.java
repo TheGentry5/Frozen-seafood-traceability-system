@@ -4,6 +4,7 @@ import java.util.Objects;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
@@ -52,6 +53,7 @@ public class FarmBatchServiceImpl extends ServiceImpl<FarmBatchMapper, FarmBatch
                 keyword = null;
             }
         }
+
         Page<FarmBatch> pageParam = new Page<>(page, size);
         baseMapper.selectPageForNode(pageParam, AuthContext.nodeId(), status, keyword);
         return new PageResult<>(pageParam.getTotal(), pageParam.getRecords());
@@ -64,11 +66,13 @@ public class FarmBatchServiceImpl extends ServiceImpl<FarmBatchMapper, FarmBatch
         if (batchCode == null || batchCode.trim().isEmpty()) {
             return false;
         }
+
         LambdaQueryWrapper<FarmBatch> qw = new LambdaQueryWrapper<FarmBatch>()
                 .eq(FarmBatch::getBatchCode, batchCode.trim());
         if (excludeId != null) {
             qw.ne(FarmBatch::getId, excludeId);
         }
+        // 空参/空串直接返回 `false`（不查库），兜底非空校验
         Long cnt = baseMapper.selectCount(qw);
         return cnt != null && cnt > 0;
     }
@@ -80,6 +84,7 @@ public class FarmBatchServiceImpl extends ServiceImpl<FarmBatchMapper, FarmBatch
         if (req.getBatchCode() == null || req.getBatchCode().trim().isEmpty()) {
             throw new BizException(BizCode.BAD_REQUEST, "产品批号不能为空");
         }
+
         req.setBatchCode(req.getBatchCode().trim());
         checkTextLen(req.getBatchCode(), "产品批号", BATCH_CODE_MAX);
         checkTextLen(req.getProductName(), "产品品种", PRODUCT_NAME_MAX);
@@ -88,6 +93,7 @@ public class FarmBatchServiceImpl extends ServiceImpl<FarmBatchMapper, FarmBatch
         if (existsBatchCode(req.getBatchCode(), null)) {
             throw new BizException(BizCode.CONFLICT, "该产品批号已存在");
         }
+
         FarmBatch row = new FarmBatch();
         row.setNodeId(AuthContext.nodeId());
         row.setBatchCode(req.getBatchCode());
@@ -100,6 +106,7 @@ public class FarmBatchServiceImpl extends ServiceImpl<FarmBatchMapper, FarmBatch
 
     // 更新批号产品
     @Override
+    @Transactional
     public void updateMy(FarmBatch req) {
         requireFarm();
         FarmBatch exist = requireOwned(req.getId());
@@ -109,6 +116,7 @@ public class FarmBatchServiceImpl extends ServiceImpl<FarmBatchMapper, FarmBatch
         checkTextLen(req.getProductName(), "产品品种", PRODUCT_NAME_MAX);
         checkTextLen(req.getInspectionCert(), "检验检疫合格证明", INSPECTION_CERT_MAX);
         checkTextLen(req.getInspector(), "官方检疫员名称", INSPECTOR_MAX);
+
         FarmBatch update = new FarmBatch();
         update.setProductName(req.getProductName());
         update.setInspectionCert(req.getInspectionCert());
@@ -126,12 +134,14 @@ public class FarmBatchServiceImpl extends ServiceImpl<FarmBatchMapper, FarmBatch
 
     // 下架批号产品
     @Override
+    @Transactional
     public void offMy(Long id) {
         requireFarm();
         FarmBatch exist = requireOwned(id);
         if (exist.getStatus() != StatusConst.FARM_RELEASED) {
             throw new BizException(BizCode.BAD_REQUEST, "仅已发布状态可下架");
         }
+
         Long refs = procBatchMapper.selectCount(new LambdaQueryWrapper<ProcBatch>()
                 .eq(ProcBatch::getInNodeId, AuthContext.nodeId())
                 .eq(ProcBatch::getInBatchId, exist.getId())
@@ -140,6 +150,7 @@ public class FarmBatchServiceImpl extends ServiceImpl<FarmBatchMapper, FarmBatch
         if (refs != null && refs > 0) {
             throw new BizException(BizCode.FORBIDDEN, "该批号已被下游引用，暂不能下架");
         }
+
         FarmBatch update = new FarmBatch();
         update.setStatus(StatusConst.FARM_OFF);
         LambdaUpdateWrapper<FarmBatch> uw = new LambdaUpdateWrapper<FarmBatch>()
@@ -152,12 +163,14 @@ public class FarmBatchServiceImpl extends ServiceImpl<FarmBatchMapper, FarmBatch
 
     // 删除批号产品
     @Override
+    @Transactional
     public void deleteMy(Long id) {
         requireFarm();
         FarmBatch exist = requireOwned(id);
         if (exist.getStatus() != StatusConst.FARM_WAIT_RELEASE) {
             throw new BizException(BizCode.BAD_REQUEST, "仅待发布状态可删除");
         }
+
         LambdaQueryWrapper<FarmBatch> dw = new LambdaQueryWrapper<FarmBatch>()
                 .eq(FarmBatch::getId, exist.getId())
                 .eq(FarmBatch::getStatus, StatusConst.FARM_WAIT_RELEASE);
@@ -173,6 +186,7 @@ public class FarmBatchServiceImpl extends ServiceImpl<FarmBatchMapper, FarmBatch
         if (id == null) {
             throw new BizException(BizCode.BAD_REQUEST, "缺少批号 id");
         }
+
         FarmBatch batch = baseMapper.selectByIdForNode(id);
         if (batch == null) {
             throw new BizException(BizCode.BAD_REQUEST, "批号不存在");

@@ -29,6 +29,9 @@ public interface NodeInfoMapper extends BaseMapper<NodeInfo> {
             @Param("provinceCode") String provinceCode,
             @Param("cityCode") String cityCode);
 
+    /** 单企业详情：联出省/市中文名（下游新建批号回填 in_area 用） */
+    NodeInfo selectByIdWithArea(@Param("id") Long id);
+
     /** 统计：12 个月注册数量（year 可为 null，缺省当年） */
     List<Map<String, Object>> selectMonthTrend(@Param("year") Integer year);
 
