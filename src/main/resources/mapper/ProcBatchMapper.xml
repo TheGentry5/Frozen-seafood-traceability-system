@@ -16,11 +16,14 @@
         ORDER BY b.create_time DESC
     </select>
 
+    <!-- 详情：按 id 联出上游养殖批号与企业名，并回填本企业名 n.node_name -->
     <select id="selectByIdForNode" resultType="com.example.frozen_seafood_traceability_system.entity.ProcBatch">
-        SELECT b.*, ub.batch_code AS in_batch_code, un.node_name AS in_node_name
+        SELECT b.*, ub.batch_code AS in_batch_code, un.node_name AS in_node_name,
+               n.node_name
         FROM proc_batch b
         LEFT JOIN farm_batch ub ON b.in_batch_id = ub.id
         LEFT JOIN node_info un ON b.in_node_id = un.id
+        LEFT JOIN node_info n  ON b.node_id = n.id
         WHERE b.id = #{id}
     </select>
 
