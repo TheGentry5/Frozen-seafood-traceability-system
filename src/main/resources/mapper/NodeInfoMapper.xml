@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.example.frozen_seafood_traceability_system.mapper.NodeInfoMapper">
-    <!-- 待业务编码阶段按 docs/开发实施文档.md 附录 D 补充：
-         selectPageWithArea / selectMonthTrend / selectProvinceDist / selectTypeDist -->
+    <!-- 分页/字段联表与统计 SQL，见 docs/开发实施文档.md 附录 D -->
 
     <!-- 单企业详情：联出省/市中文名 -->
     <select id="selectByIdWithArea" resultType="com.example.frozen_seafood_traceability_system.entity.NodeInfo">
@@ -21,4 +20,41 @@
         <if test="cityCode != null and cityCode != ''">AND city_code = #{cityCode}</if>
         ORDER BY node_code
     </select>
+
+    <select id="selectPageWithArea" resultType="com.example.frozen_seafood_traceability_system.entity.NodeInfo">
+        SELECT n.*, p.province_name, c.city_name
+        FROM node_info n
+        LEFT JOIN province p ON n.province_code = p.province_code
+        LEFT JOIN city c ON n.city_code = c.city_code
+        <where>
+            <if test="nodeName != null and nodeName != ''">AND n.node_name LIKE CONCAT('%', #{nodeName}, '%')</if>
+            <if test="nodeType != null">AND n.node_type = #{nodeType}</if>
+            <if test="provinceCode != null and provinceCode != ''">AND n.province_code = #{provinceCode}</if>
+            <if test="cityCode != null and cityCode != ''">AND n.city_code = #{cityCode}</if>
+        </where>
+        ORDER BY n.create_time DESC
+    </select>
+
+    <!-- 统计三件套 -->
+    <select id="selectMonthTrend" resultType="map">
+        SELECT MONTH(create_time) AS month, COUNT(*) AS count
+        FROM node_info
+        WHERE YEAR(create_time) = #{year}
+        GROUP BY MONTH(create_time)
+    </select>
+
+    <select id="selectProvinceDist" resultType="map">
+        SELECT p.province_name AS provinceName, COUNT(n.id) AS count
+        FROM node_info n
+        LEFT JOIN province p ON n.province_code = p.province_code
+        WHERE n.province_code IS NOT NULL
+        GROUP BY n.province_code, p.province_name
+    </select>
+
+    <select id="selectTypeDist" resultType="map">
+        SELECT node_type AS nodeType, COUNT(*) AS count
+        FROM node_info
+        GROUP BY node_type
+    </select>
+
 </mapper>
