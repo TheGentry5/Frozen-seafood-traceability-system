@@ -22,3 +22,11 @@ INSERT INTO node_info (node_code, password, node_name, node_type, province_code,
 INSERT INTO farm_batch (node_id, batch_code, product_name, inspection_cert, inspector, status) VALUES
  (1,'FARM-B-20260901','南美白对虾','闽检字2026-0901','林海',2),
  (2,'FARM-B-20260902','三文鱼','鲁检字2026-0902','王强',2);
+
+-- ---------- 冷链温度填报样例（养殖批号 1，供曲线展示） ----------
+INSERT INTO cold_chain_record (batch_type, batch_id, node_id, temperature, humidity, record_time, remark) VALUES
+ (1,1,1,-18.50,85.00,'2026-09-01 08:00:00','入库'),
+ (1,1,1,-18.80,86.00,'2026-09-01 12:00:00',NULL),
+ (1,1,1,-17.20,84.00,'2026-09-01 16:00:00','抽检'),
+ (1,1,1,-19.10,87.00,'2026-09-02 08:00:00',NULL),
+ (1,1,1,-18.30,85.00,'2026-09-02 12:00:00',NULL);

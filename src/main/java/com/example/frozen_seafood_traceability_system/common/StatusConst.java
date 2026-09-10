@@ -1,5 +1,7 @@
 package com.example.frozen_seafood_traceability_system.common;
 
+import java.math.BigDecimal;
+
 /**
  * 状态 / 企业类型常量（docs/开发实施文档.md §4.4，与建表注释一致）。
  */
@@ -25,4 +27,14 @@ public interface StatusConst {
     int BATCH_WAIT_CONFIRM = 2;  // 待确认
     int BATCH_CONFIRMED = 3;     // 已确认
     int BATCH_OFF = 4;           // 已下架
+
+    // ===== cold_chain_record.batch_type =====
+    int BATCH_TYPE_FARM = 1;
+    int BATCH_TYPE_PROC = 2;
+    int BATCH_TYPE_WHOL = 3;
+    int BATCH_TYPE_RETA = 4;
+
+    // ===== 冷链温度阈值（摄氏度） =====
+    BigDecimal COLD_MIN = new BigDecimal("-25.00");
+    BigDecimal COLD_MAX = new BigDecimal("0.00");
 }

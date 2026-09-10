@@ -37,6 +37,35 @@
         </div>
       </template>
 
+      <h4 class="section-title"><i class="fas fa-temperature-low"></i> 冷链温度记录</h4>
+      <div v-if="tempRecords.length" ref="tempChart" class="cold-chart"></div>
+      <div v-else class="cold-empty">暂无温度填报记录</div>
+
+      <div class="cold-form form-grid">
+        <div class="form-item">
+          <label>温度(℃)<span class="req">*</span></label>
+          <input v-model="tempForm.temperature" type="number" step="0.1" placeholder="如 -18.5" />
+        </div>
+        <div class="form-item">
+          <label>湿度(%)</label>
+          <input v-model="tempForm.humidity" type="number" step="0.1" placeholder="可选" />
+        </div>
+        <div class="form-item">
+          <label>采集时间</label>
+          <input v-model="tempForm.recordTime" type="datetime-local" />
+        </div>
+        <div class="form-item">
+          <label>备注</label>
+          <input v-model="tempForm.remark" placeholder="可选" />
+        </div>
+      </div>
+      <div class="cold-actions">
+        <span v-if="!canReport" class="cold-tip">该批号已下架，不可继续填报</span>
+        <button class="btn btn-primary" :disabled="!canReport" @click="reportTemp">
+          <i class="fas fa-plus"></i> 填报温度
+        </button>
+      </div>
+
       <div class="op-row">
         <router-link class="btn btn-gray" :to="base + '/batch/list'">返回列表</router-link>
         <router-link v-if="canEdit" class="btn btn-primary" :to="base + '/batch/edit/' + row.id">
@@ -49,8 +78,9 @@
 </template>
 
 <script>
+import * as echarts from 'echarts'
 import MODULES, { statusText, statusTagClass } from '../../modules'
-import request from '../../util'
+import request, { toast } from '../../util'
 
 export default {
   name: 'BatchDetail',
@@ -61,7 +91,10 @@ export default {
       mod,
       base: mod ? '/' + mod.key : '',
       row: {},
-      loading: true
+      loading: true,
+      tempRecords: [],
+      tempForm: { temperature: '', humidity: '', recordTime: '', remark: '' },
+      tempChart: null
     }
   },
   computed: {
@@ -75,10 +108,19 @@ export default {
       const allowed =
         this.mod.key === 'farm' ? [1] : [1]
       return allowed.includes(this.row.status)
+    },
+    canReport() {
+      if (!this.row.id) return false
+      const offStatus = this.mod.key === 'farm' ? 3 : 4
+      return this.row.status !== offStatus
     }
   },
   created() {
     this.load()
+    this.loadTemp()
+  },
+  beforeUnmount() {
+    if (this.tempChart) this.tempChart.dispose()
   },
   methods: {
     statusText(s) {
@@ -97,6 +139,88 @@ export default {
         /* toast */
       } finally {
         this.loading = false
+      }
+    },
+    async loadTemp() {
+      try {
+        this.tempRecords = (await request.get('/cold-chain', {
+          params: { batchType: this.mod.nodeType, batchId: this.$route.params.id }
+        })) || []
+      } catch (e) {
+        /* toast */
+      }
+      this.$nextTick(() => this.renderTempChart())
+    },
+    fmtTime(v) {
+      if (!v) return ''
+      const d = new Date(v)
+      if (isNaN(d.getTime())) return v
+      const p = (n) => String(n).padStart(2, '0')
+      return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+    },
+    renderTempChart() {
+      const el = this.$refs.tempChart
+      if (!el || !this.tempRecords.length) return
+      if (this.tempChart) this.tempChart.dispose()
+      this.tempChart = echarts.init(el)
+      this.tempChart.setOption({
+        tooltip: {
+          trigger: 'axis',
+          formatter: (ps) => {
+            const r = this.tempRecords[ps[0].dataIndex] || {}
+            return `${this.fmtTime(r.recordTime)}<br/>温度：${ps[0].value} ℃`
+          }
+        },
+        grid: { left: 55, right: 30, top: 30, bottom: 30 },
+        xAxis: {
+          type: 'category',
+          data: this.tempRecords.map((r) => this.fmtTime(r.recordTime))
+        },
+        yAxis: { type: 'value', name: '℃' },
+        series: [
+          {
+            name: '温度',
+            type: 'line',
+            smooth: true,
+            data: this.tempRecords.map((r) => {
+              const t = Number(r.temperature)
+              return { value: t, itemStyle: t > 0 || t < -25 ? { color: '#fa5252' } : undefined }
+            }),
+            lineStyle: { color: '#1c7ed6' },
+            itemStyle: { color: '#1c7ed6' },
+            areaStyle: { color: 'rgba(28,126,214,0.12)' },
+            markLine: {
+              silent: true,
+              symbol: 'none',
+              lineStyle: { type: 'dashed' },
+              data: [
+                { yAxis: 0, name: '上限 0℃', lineStyle: { color: '#fa5252' } },
+                { yAxis: -25, name: '下限 -25℃', lineStyle: { color: '#1c7ed6' } }
+              ]
+            }
+          }
+        ]
+      })
+    },
+    async reportTemp() {
+      if (this.tempForm.temperature === '' || this.tempForm.temperature === null) {
+        toast('请输入温度', 'warn')
+        return
+      }
+      try {
+        await request.post('/cold-chain/report', {
+          batchType: this.mod.nodeType,
+          batchId: Number(this.$route.params.id),
+          temperature: Number(this.tempForm.temperature),
+          humidity: this.tempForm.humidity === '' ? null : Number(this.tempForm.humidity),
+          recordTime: this.tempForm.recordTime || null,
+          remark: this.tempForm.remark || null
+        })
+        toast('填报成功', 'success')
+        this.tempForm = { temperature: '', humidity: '', recordTime: '', remark: '' }
+        this.loadTemp()
+      } catch (e) {
+        /* toast */
       }
     }
   }
@@ -140,5 +264,28 @@ export default {
   justify-content: flex-end;
   gap: 12px;
   margin-top: 24px;
+}
+.cold-chart {
+  height: 300px;
+  margin-bottom: 16px;
+}
+.cold-empty {
+  color: #868e96;
+  text-align: center;
+  padding: 24px 0;
+  margin-bottom: 16px;
+}
+.cold-form {
+  margin-bottom: 12px;
+}
+.cold-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+}
+.cold-tip {
+  color: #e8590c;
+  font-size: 13px;
 }
 </style>

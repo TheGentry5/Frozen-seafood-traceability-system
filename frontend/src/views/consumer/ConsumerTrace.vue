@@ -63,11 +63,19 @@
           </div>
         </div>
       </template>
+
+      <div v-if="result && tempPoints.length" class="card">
+        <div class="step-head" style="margin-bottom: 12px">
+          <span class="stage-tag" style="background: #1971c2">全程冷链温度曲线</span>
+        </div>
+        <div ref="tempChart" class="temp-chart"></div>
+      </div>
     </div>
   </div>
 </template>
 
 <script>
+import * as echarts from 'echarts'
 import request from '../../util'
 
 export default {
@@ -79,6 +87,8 @@ export default {
       chain: [],
       loading: true,
       errorMsg: '',
+      tempPoints: [],
+      tempChart: null,
       colors: ['#2f9e44', '#1971c2', '#e8590c', '#862e9c'],
       icons: ['fa-fish', 'fa-industry', 'fa-warehouse', 'fa-store']
     }
@@ -98,6 +108,74 @@ export default {
       this.errorMsg = '未查询到该溯源码信息'
     } finally {
       this.loading = false
+    }
+    this.loadTemp()
+  },
+  beforeUnmount() {
+    if (this.tempChart) this.tempChart.dispose()
+  },
+  methods: {
+    async loadTemp() {
+      try {
+        const res = await request.get(`/trace/info/${encodeURIComponent(this.traceCode)}/temperature`)
+        this.tempPoints = (res && res.points) || []
+      } catch (e) {
+        /* 无温度数据时静默 */
+      }
+      this.$nextTick(() => this.renderTempChart())
+    },
+    fmtTime(v) {
+      if (!v) return ''
+      const d = new Date(v)
+      if (isNaN(d.getTime())) return v
+      const p = (n) => String(n).padStart(2, '0')
+      return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+    },
+    renderTempChart() {
+      const el = this.$refs.tempChart
+      if (!el || !this.tempPoints.length) return
+      if (this.tempChart) this.tempChart.dispose()
+      this.tempChart = echarts.init(el)
+      const points = this.tempPoints
+      this.tempChart.setOption({
+        tooltip: {
+          trigger: 'axis',
+          formatter: (ps) => {
+            const p = points[ps[0].dataIndex] || {}
+            const who = [p.stage, p.nodeName].filter(Boolean).join(' · ')
+            return `${this.fmtTime(p.recordTime)}${who ? '<br/>' + who : ''}<br/>温度：${ps[0].value} ℃`
+          }
+        },
+        grid: { left: 55, right: 30, top: 30, bottom: 30 },
+        xAxis: {
+          type: 'category',
+          data: points.map((p) => this.fmtTime(p.recordTime))
+        },
+        yAxis: { type: 'value', name: '℃' },
+        series: [
+          {
+            name: '温度',
+            type: 'line',
+            smooth: true,
+            data: points.map((p) => {
+              const t = Number(p.temperature)
+              return { value: t, itemStyle: t > 0 || t < -25 ? { color: '#fa5252' } : undefined }
+            }),
+            lineStyle: { color: '#1c7ed6' },
+            itemStyle: { color: '#1c7ed6' },
+            areaStyle: { color: 'rgba(28,126,214,0.12)' },
+            markLine: {
+              silent: true,
+              symbol: 'none',
+              lineStyle: { type: 'dashed' },
+              data: [
+                { yAxis: 0, name: '上限 0℃', lineStyle: { color: '#fa5252' } },
+                { yAxis: -25, name: '下限 -25℃', lineStyle: { color: '#1c7ed6' } }
+              ]
+            }
+          }
+        ]
+      })
     }
   }
 }
@@ -200,5 +278,8 @@ export default {
 }
 .detail-list .value {
   word-break: break-all;
+}
+.temp-chart {
+  height: 300px;
 }
 </style>

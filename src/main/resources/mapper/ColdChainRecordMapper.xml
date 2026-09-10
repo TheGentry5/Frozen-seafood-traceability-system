@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.frozen_seafood_traceability_system.mapper.ColdChainRecordMapper">
+
+    <!-- 某批号温度记录，按采集时间升序（曲线 x 轴顺序） -->
+    <select id="listByBatch" resultType="com.example.frozen_seafood_traceability_system.entity.ColdChainRecord">
+        SELECT * FROM cold_chain_record
+        WHERE batch_type = #{batchType} AND batch_id = #{batchId}
+        ORDER BY record_time ASC, id ASC
+    </select>
+</mapper>

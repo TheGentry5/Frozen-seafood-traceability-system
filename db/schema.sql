@@ -138,3 +138,19 @@ CREATE TABLE reta_batch (
   KEY idx_reta_in_node (in_node_id),
   KEY idx_reta_in_batch (in_batch_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============ 冷链温度填报记录（四环节共用） ============
+-- batch_type: 1养殖 2加工 3批发 4零售
+CREATE TABLE cold_chain_record (
+  id          BIGINT PRIMARY KEY AUTO_INCREMENT,
+  batch_type  TINYINT       NOT NULL,
+  batch_id    BIGINT        NOT NULL,
+  node_id     BIGINT        NOT NULL,
+  temperature DECIMAL(5,2)  NOT NULL,
+  humidity    DECIMAL(5,2),
+  record_time DATETIME      NOT NULL,
+  remark      VARCHAR(255),
+  create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_cc_batch (batch_type, batch_id, record_time),
+  KEY idx_cc_node (node_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

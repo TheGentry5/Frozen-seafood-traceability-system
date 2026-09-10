@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.frozen_seafood_traceability_system.common.Result;
+import com.example.frozen_seafood_traceability_system.service.ColdChainService;
 import com.example.frozen_seafood_traceability_system.service.TraceService;
 
 /**
@@ -21,8 +22,17 @@ public class TraceController {
     @Autowired
     private TraceService traceService;
 
+    @Autowired
+    private ColdChainService coldChainService;
+
     @GetMapping("/info/{traceCode}")
     public Result<Map<String, Object>> info(@PathVariable String traceCode) {
         return Result.ok(traceService.trace(traceCode));
+    }
+
+    /** 全链冷链温度曲线（公开） */
+    @GetMapping("/info/{traceCode}/temperature")
+    public Result<Map<String, Object>> temperature(@PathVariable String traceCode) {
+        return Result.ok(coldChainService.traceCurve(traceCode));
     }
 }
