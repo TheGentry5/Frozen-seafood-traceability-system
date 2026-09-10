@@ -5,11 +5,14 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * 全局异常处理：所有异常统一转为 Result JSON。
@@ -40,6 +43,16 @@ public class GlobalExceptionHandler {
     })
     public Result<Void> handleParam(Exception e) {
         return Result.badRequest("请求参数不合法：" + e.getMessage());
+    }
+
+    @ExceptionHandler({NoHandlerFoundException.class, NoResourceFoundException.class})
+    public Result<Void> handleNotFound(Exception e) {
+        return Result.fail(BizCode.NOT_FOUND, "接口不存在");
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public Result<Void> handleMethod(HttpRequestMethodNotSupportedException e) {
+        return Result.fail(BizCode.BAD_REQUEST, "请求方法不支持：" + e.getMethod());
     }
 
     @ExceptionHandler(Exception.class)

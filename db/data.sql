@@ -6,6 +6,15 @@
 -- ============================================================
 USE seafood_trace;
 
+-- 可重复执行：先清空旧种子数据并重置自增（顺序：先子后父）
+TRUNCATE TABLE cold_chain_record;
+TRUNCATE TABLE reta_batch;
+TRUNCATE TABLE whol_batch;
+TRUNCATE TABLE proc_batch;
+TRUNCATE TABLE farm_batch;
+TRUNCATE TABLE node_info;
+TRUNCATE TABLE admin;
+
 -- ---------- 系统管理员 ----------
 INSERT INTO admin (username, password) VALUES ('admin', 'e10adc3949ba59abbe56e057f20f883e');
 

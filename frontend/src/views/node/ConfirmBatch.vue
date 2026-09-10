@@ -39,7 +39,7 @@
           </td>
         </tr>
         <tr v-if="!loading && rows.length === 0">
-          <td :colspan="5" class="empty">暂无待确认的下游进场请求</td>
+          <td :colspan="mod.showProductType ? 6 : 5" class="empty">暂无待确认的下游进场请求</td>
         </tr>
       </tbody>
     </table>

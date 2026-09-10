@@ -75,7 +75,7 @@
 </template>
 
 <script>
-import * as echarts from 'echarts'
+import echarts from '../../charts'
 import request from '../../util'
 
 export default {
@@ -94,6 +94,7 @@ export default {
     }
   },
   async created() {
+    window.addEventListener('resize', this.onResize)
     if (!this.traceCode) {
       this.errorMsg = '请从溯源查询页输入溯源码'
       this.loading = false
@@ -109,12 +110,17 @@ export default {
     } finally {
       this.loading = false
     }
-    this.loadTemp()
+    // 主溯源信息查询成功后再取温度，避免无效溯源码触发二次报错
+    if (this.chain.length) this.loadTemp()
   },
   beforeUnmount() {
+    window.removeEventListener('resize', this.onResize)
     if (this.tempChart) this.tempChart.dispose()
   },
   methods: {
+    onResize() {
+      if (this.tempChart) this.tempChart.resize()
+    },
     async loadTemp() {
       try {
         const res = await request.get(`/trace/info/${encodeURIComponent(this.traceCode)}/temperature`)
@@ -140,10 +146,11 @@ export default {
       this.tempChart.setOption({
         tooltip: {
           trigger: 'axis',
+          renderMode: 'richText',
           formatter: (ps) => {
             const p = points[ps[0].dataIndex] || {}
             const who = [p.stage, p.nodeName].filter(Boolean).join(' · ')
-            return `${this.fmtTime(p.recordTime)}${who ? '<br/>' + who : ''}<br/>温度：${ps[0].value} ℃`
+            return `${this.fmtTime(p.recordTime)}${who ? '\n' + who : ''}\n温度：${ps[0].value} ℃`
           }
         },
         grid: { left: 55, right: 30, top: 30, bottom: 30 },

@@ -24,11 +24,13 @@ import com.example.frozen_seafood_traceability_system.common.BizCode;
 import com.example.frozen_seafood_traceability_system.common.BizException;
 import com.example.frozen_seafood_traceability_system.common.PageResult;
 import com.example.frozen_seafood_traceability_system.common.StatusConst;
+import com.example.frozen_seafood_traceability_system.common.TokenStore;
 import com.example.frozen_seafood_traceability_system.entity.City;
 import com.example.frozen_seafood_traceability_system.entity.ColdChainRecord;
 import com.example.frozen_seafood_traceability_system.entity.FarmBatch;
 import com.example.frozen_seafood_traceability_system.entity.NodeInfo;
 import com.example.frozen_seafood_traceability_system.entity.ProcBatch;
+import com.example.frozen_seafood_traceability_system.entity.Province;
 import com.example.frozen_seafood_traceability_system.entity.RetaBatch;
 import com.example.frozen_seafood_traceability_system.entity.WholBatch;
 import com.example.frozen_seafood_traceability_system.mapper.CityMapper;
@@ -36,6 +38,7 @@ import com.example.frozen_seafood_traceability_system.mapper.ColdChainRecordMapp
 import com.example.frozen_seafood_traceability_system.mapper.FarmBatchMapper;
 import com.example.frozen_seafood_traceability_system.mapper.NodeInfoMapper;
 import com.example.frozen_seafood_traceability_system.mapper.ProcBatchMapper;
+import com.example.frozen_seafood_traceability_system.mapper.ProvinceMapper;
 import com.example.frozen_seafood_traceability_system.mapper.RetaBatchMapper;
 import com.example.frozen_seafood_traceability_system.mapper.WholBatchMapper;
 import com.example.frozen_seafood_traceability_system.service.AdminService;
@@ -62,6 +65,8 @@ public class AdminServiceImpl implements AdminService {
     @Autowired
     private CityMapper cityMapper;
     @Autowired
+    private ProvinceMapper provinceMapper;
+    @Autowired
     private FarmBatchMapper farmBatchMapper;
     @Autowired
     private ProcBatchMapper procBatchMapper;
@@ -71,6 +76,8 @@ public class AdminServiceImpl implements AdminService {
     private RetaBatchMapper retaBatchMapper;
     @Autowired
     private ColdChainRecordMapper coldChainRecordMapper;
+    @Autowired
+    private TokenStore tokenStore;
 
     @Override
     public PageResult<NodeInfo> pageNode(long page, long size, String nodeName, Integer nodeType,
@@ -306,10 +313,24 @@ public class AdminServiceImpl implements AdminService {
             throw new BizException(BizCode.BAD_REQUEST, "没有需要更新的字段");
         }
 
+        // 变更企业类型前，确保名下无未下架批号（否则原类型数据将无法再被管理）
+        boolean typeChanged = req.getNodeType() != null
+                && !Objects.equals(req.getNodeType(), exist.getNodeType());
+        if (typeChanged && hasUnfinishedBatch(exist.getId())) {
+            throw new BizException(BizCode.BAD_REQUEST, "该企业名下存在批号，暂不能变更企业类型，请先处理");
+        }
+        boolean disabled = req.getStatus() != null
+                && Objects.equals(req.getStatus(), StatusConst.NODE_DISABLED);
+
         try {
             nodeInfoMapper.update(null, uw);
         } catch (DuplicateKeyException e) {
             throw new BizException(BizCode.CONFLICT, "该企业编码已存在");
+        }
+
+        // 停用或改类型后吊销该企业已发 token，强制重新登录
+        if (typeChanged || disabled) {
+            tokenStore.removeBySubject("NODE", exist.getId());
         }
     }
 
@@ -325,19 +346,7 @@ public class AdminServiceImpl implements AdminService {
         }
 
         // 名下 4 张批号表中任一存在"未下架"批号 → 403，禁止删除
-        Long farmRefs = farmBatchMapper.selectCount(new LambdaQueryWrapper<FarmBatch>()
-                .eq(FarmBatch::getNodeId, id)
-                .ne(FarmBatch::getStatus, StatusConst.FARM_OFF)); // farm: 3=已下架
-        Long procRefs = procBatchMapper.selectCount(new LambdaQueryWrapper<ProcBatch>()
-                .eq(ProcBatch::getNodeId, id)
-                .ne(ProcBatch::getStatus, StatusConst.BATCH_OFF)); // 2/3/4: 4=已下架
-        Long wholRefs = wholBatchMapper.selectCount(new LambdaQueryWrapper<WholBatch>()
-                .eq(WholBatch::getNodeId, id)
-                .ne(WholBatch::getStatus, StatusConst.BATCH_OFF));
-        Long retaRefs = retaBatchMapper.selectCount(new LambdaQueryWrapper<RetaBatch>()
-                .eq(RetaBatch::getNodeId, id)
-                .ne(RetaBatch::getStatus, StatusConst.BATCH_OFF));
-        if (isPositive(farmRefs) || isPositive(procRefs) || isPositive(wholRefs) || isPositive(retaRefs)) {
+        if (hasUnfinishedBatch(id)) {
             throw new BizException(BizCode.FORBIDDEN, "请先处理该企业名下批号");
         }
 
@@ -434,17 +443,27 @@ public class AdminServiceImpl implements AdminService {
         }
     }
 
-    // 校验城市存在且属于所选省份（两者均可为空，为空则跳过）
+    // 校验省存在、市存在且属于所选省份（未填则跳过）
     private void validateArea(String provinceCode, String cityCode) {
+        if (provinceCode != null) {
+            Long pc = provinceMapper.selectCount(new LambdaQueryWrapper<Province>()
+                    .eq(Province::getProvinceCode, provinceCode));
+            if (pc == null || pc == 0) {
+                throw new BizException(BizCode.BAD_REQUEST, "所选省份不存在");
+            }
+        }
         if (cityCode == null) {
             return;
+        }
+        if (provinceCode == null) {
+            throw new BizException(BizCode.BAD_REQUEST, "选择城市前请先选择省份");
         }
         City city = cityMapper.selectOne(new LambdaQueryWrapper<City>()
                 .eq(City::getCityCode, cityCode));
         if (city == null) {
             throw new BizException(BizCode.BAD_REQUEST, "所选城市不存在");
         }
-        if (provinceCode != null && !Objects.equals(city.getProvinceCode(), provinceCode)) {
+        if (!Objects.equals(city.getProvinceCode(), provinceCode)) {
             throw new BizException(BizCode.BAD_REQUEST, "所选城市不属于该省份");
         }
     }
@@ -467,6 +486,24 @@ public class AdminServiceImpl implements AdminService {
 
     private static boolean isPositive(Long v) {
         return v != null && v > 0;
+    }
+
+    // 企业名下任一类型批号表中存在"未下架"批号
+    private boolean hasUnfinishedBatch(Long nodeId) {
+        Long farmRefs = farmBatchMapper.selectCount(new LambdaQueryWrapper<FarmBatch>()
+                .eq(FarmBatch::getNodeId, nodeId)
+                .ne(FarmBatch::getStatus, StatusConst.FARM_OFF));
+        Long procRefs = procBatchMapper.selectCount(new LambdaQueryWrapper<ProcBatch>()
+                .eq(ProcBatch::getNodeId, nodeId)
+                .ne(ProcBatch::getStatus, StatusConst.BATCH_OFF));
+        Long wholRefs = wholBatchMapper.selectCount(new LambdaQueryWrapper<WholBatch>()
+                .eq(WholBatch::getNodeId, nodeId)
+                .ne(WholBatch::getStatus, StatusConst.BATCH_OFF));
+        Long retaRefs = retaBatchMapper.selectCount(new LambdaQueryWrapper<RetaBatch>()
+                .eq(RetaBatch::getNodeId, nodeId)
+                .ne(RetaBatch::getStatus, StatusConst.BATCH_OFF));
+        return isPositive(farmRefs) || isPositive(procRefs)
+                || isPositive(wholRefs) || isPositive(retaRefs);
     }
 
     // 统计结果类型宽松转换，避免驱动返回类型差异导致 ClassCastException

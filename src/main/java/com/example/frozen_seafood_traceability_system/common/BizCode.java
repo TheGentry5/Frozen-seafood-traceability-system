@@ -13,10 +13,10 @@ public interface BizCode {
     int UNAUTHORIZED = 401;
     /** 无权限 / 角色不符 */
     int FORBIDDEN = 403;
+    /** 资源不存在 */
+    int NOT_FOUND = 404;
     /** 冲突（批号/编码重复等） */
     int CONFLICT = 409;
     /** 服务器异常 */
     int INTERNAL_ERROR = 500;
-    /** 骨架占位：接口尚未实现业务 */
-    int NOT_IMPLEMENTED = 501;
 }

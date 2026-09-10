@@ -39,6 +39,7 @@ public class ColdChainServiceImpl implements ColdChainService {
 
     private static final BigDecimal HUMIDITY_MIN = BigDecimal.ZERO;
     private static final BigDecimal HUMIDITY_MAX = new BigDecimal("100");
+    private static final int REMARK_MAX = 255;
 
     @Autowired
     private ColdChainRecordMapper coldChainRecordMapper;
@@ -76,6 +77,9 @@ public class ColdChainServiceImpl implements ColdChainService {
                 && (req.getHumidity().compareTo(HUMIDITY_MIN) < 0
                     || req.getHumidity().compareTo(HUMIDITY_MAX) > 0)) {
             throw new BizException(BizCode.BAD_REQUEST, "湿度须在 0 ~ 100 之间");
+        }
+        if (req.getRemark() != null && req.getRemark().length() > REMARK_MAX) {
+            throw new BizException(BizCode.BAD_REQUEST, "备注长度不能超过 " + REMARK_MAX + " 位");
         }
 
         LocalDateTime recordTime = req.getRecordTime() == null ? LocalDateTime.now() : req.getRecordTime();
@@ -275,7 +279,7 @@ public class ColdChainServiceImpl implements ColdChainService {
 
     private void requireNode() {
         if (!AuthContext.isNode()) {
-            throw new BizException(BizCode.UNAUTHORIZED, "请先以节点企业身份登录");
+            throw new BizException(BizCode.FORBIDDEN, "无权操作本类批号（仅节点企业）");
         }
     }
 }

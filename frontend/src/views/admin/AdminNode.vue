@@ -68,7 +68,7 @@
             <td>{{ row.phone || '—' }}</td>
             <td>
               <span class="tag" :class="row.status === 1 ? 'tag-green' : 'tag-gray'">
-                {{ row.status === 1 ? '启用' : '停用' }}
+                {{ NODE_STATUS_TEXT[row.status] || '—' }}
               </span>
             </td>
             <td>{{ row.createTime || '—' }}</td>
@@ -175,7 +175,7 @@
 </template>
 
 <script>
-import { NODE_TYPES } from '../../modules'
+import { NODE_TYPES, NODE_STATUS_TEXT } from '../../modules'
 import request, { toast } from '../../util'
 import Pagination from '../../components/Pagination.vue'
 
@@ -185,6 +185,7 @@ export default {
   data() {
     return {
       nodeTypes: NODE_TYPES,
+      NODE_STATUS_TEXT,
       provinces: [],
       query: { nodeName: '', nodeType: '', provinceCode: '', cityCode: '' },
       queryCities: [],
@@ -214,16 +215,36 @@ export default {
       return p || c ? `${p} ${c}`.trim() : '—'
     },
     async loadProvinces() {
-      const res = await request.get('/area/provinces')
-      this.provinces = res || []
+      try {
+        const res = await request.get('/area/provinces')
+        this.provinces = res || []
+      } catch (e) {
+        this.provinces = []
+      }
     },
     async onQueryProvince() {
       this.query.cityCode = ''
-      this.queryCities = this.query.provinceCode ? (await request.get(`/area/cities/${this.query.provinceCode}`)) || [] : []
+      if (!this.query.provinceCode) {
+        this.queryCities = []
+        return
+      }
+      try {
+        this.queryCities = (await request.get(`/area/cities/${this.query.provinceCode}`)) || []
+      } catch (e) {
+        this.queryCities = []
+      }
     },
     async onDialogProvince() {
       this.payload.cityCode = ''
-      this.dialogCities = this.payload.provinceCode ? (await request.get(`/area/cities/${this.payload.provinceCode}`)) || [] : []
+      if (!this.payload.provinceCode) {
+        this.dialogCities = []
+        return
+      }
+      try {
+        this.dialogCities = (await request.get(`/area/cities/${this.payload.provinceCode}`)) || []
+      } catch (e) {
+        this.dialogCities = []
+      }
     },
     reset() {
       this.query = { nodeName: '', nodeType: '', provinceCode: '', cityCode: '' }

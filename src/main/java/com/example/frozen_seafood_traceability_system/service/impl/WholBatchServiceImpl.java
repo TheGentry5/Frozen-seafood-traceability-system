@@ -84,6 +84,7 @@ public class WholBatchServiceImpl extends ServiceImpl<WholBatchMapper, WholBatch
         }
 
         LambdaQueryWrapper<WholBatch> qw = new LambdaQueryWrapper<WholBatch>()
+                .eq(WholBatch::getNodeId, AuthContext.nodeId())
                 .eq(WholBatch::getBatchCode, batchCode.trim());
         if (excludeId != null) {
             qw.ne(WholBatch::getId, excludeId);
@@ -94,6 +95,7 @@ public class WholBatchServiceImpl extends ServiceImpl<WholBatchMapper, WholBatch
 
     // 创建批号产品
     @Override
+    @Transactional
     public void createMy(WholBatch req) {
         requireWhol();
         if (req.getBatchCode() == null || req.getBatchCode().trim().isEmpty()) {
@@ -101,6 +103,9 @@ public class WholBatchServiceImpl extends ServiceImpl<WholBatchMapper, WholBatch
         }
 
         req.setBatchCode(req.getBatchCode().trim());
+        if (req.getProductName() == null || req.getProductName().trim().isEmpty()) {
+            throw new BizException(BizCode.BAD_REQUEST, "产品名称不能为空");
+        }
         checkTextLen(req.getBatchCode(), "产品批号", BATCH_CODE_MAX);
         checkTextLen(req.getProductName(), "产品名称", PRODUCT_NAME_MAX);
         checkTextLen(req.getProductType(), "产品类型", PRODUCT_TYPE_MAX);
@@ -129,7 +134,9 @@ public class WholBatchServiceImpl extends ServiceImpl<WholBatchMapper, WholBatch
         if (req.getInBatchId() == null) {
             throw new BizException(BizCode.BAD_REQUEST, "请选择进场加工批号");
         }
-        ProcBatch procBatch = procBatchMapper.selectById(req.getInBatchId());
+        // 锁定上游加工批号行，避免与加工端下架并发导致引用已下架批号
+        ProcBatch procBatch = procBatchMapper.selectOne(new LambdaQueryWrapper<ProcBatch>()
+                .eq(ProcBatch::getId, req.getInBatchId()).last("FOR UPDATE"));
         if (procBatch == null || !Objects.equals(procBatch.getNodeId(), proc.getId())) {
             throw new BizException(BizCode.BAD_REQUEST, "所选加工批号不属于该企业");
         }
@@ -214,7 +221,7 @@ public class WholBatchServiceImpl extends ServiceImpl<WholBatchMapper, WholBatch
     @Transactional
     public void offMy(Long id) {
         requireWhol();
-        WholBatch exist = requireOwned(id);
+        WholBatch exist = requireOwnedForUpdate(id);
         if (!Objects.equals(exist.getStatus(), StatusConst.BATCH_CONFIRMED)) {
             throw new BizException(BizCode.BAD_REQUEST, "仅已确认状态可下架");
         }
@@ -226,7 +233,7 @@ public class WholBatchServiceImpl extends ServiceImpl<WholBatchMapper, WholBatch
                 .in(RetaBatch::getStatus, StatusConst.BATCH_NEW,
                         StatusConst.BATCH_WAIT_CONFIRM, StatusConst.BATCH_CONFIRMED));
         if (refs != null && refs > 0) {
-            throw new BizException(BizCode.BAD_REQUEST, "该批号已被下游引用，暂不能下架");
+            throw new BizException(BizCode.FORBIDDEN, "该批号已被下游引用，暂不能下架");
         }
 
         WholBatch update = new WholBatch();
@@ -325,9 +332,10 @@ public class WholBatchServiceImpl extends ServiceImpl<WholBatchMapper, WholBatch
             throw new BizException(BizCode.BAD_REQUEST, "该批号不在待确认状态");
         }
 
-        // 被引用的本企业加工批号仍须处于"已确认"，避免确认已下架/已删除的上游
+        // 被引用的本企业加工批号仍须处于"已确认"，避免确认已下架/已删除的上游；加锁与加工端下架串行
         ProcBatch procBatch = batch.getInBatchId() != null
-                ? procBatchMapper.selectById(batch.getInBatchId())
+                ? procBatchMapper.selectOne(new LambdaQueryWrapper<ProcBatch>()
+                        .eq(ProcBatch::getId, batch.getInBatchId()).last("FOR UPDATE"))
                 : null;
         if (procBatch == null || !Objects.equals(procBatch.getStatus(), StatusConst.BATCH_CONFIRMED)) {
             throw new BizException(BizCode.BAD_REQUEST, "上游加工批号已不在确认状态，无法确认");
@@ -346,7 +354,7 @@ public class WholBatchServiceImpl extends ServiceImpl<WholBatchMapper, WholBatch
     // 校验当前登录者：未以节点身份登录 → 401；非加工企业 → 403
     private void requireProc() {
         if (!AuthContext.isNode()) {
-            throw new BizException(BizCode.UNAUTHORIZED, "请先以节点企业身份登录");
+            throw new BizException(BizCode.FORBIDDEN, "无权操作本类批号（仅节点企业）");
         }
         if (!Objects.equals(AuthContext.nodeType(), StatusConst.NODE_PROC)) {
             throw new BizException(BizCode.FORBIDDEN, "仅加工企业可确认本类批号");
@@ -356,7 +364,7 @@ public class WholBatchServiceImpl extends ServiceImpl<WholBatchMapper, WholBatch
     // 校验当前登录者：未以节点身份登录 → 401；非批发商 → 403
     private void requireWhol() {
         if (!AuthContext.isNode()) {
-            throw new BizException(BizCode.UNAUTHORIZED, "请先以节点企业身份登录");
+            throw new BizException(BizCode.FORBIDDEN, "无权操作本类批号（仅节点企业）");
         }
         if (!Objects.equals(AuthContext.nodeType(), StatusConst.NODE_WHOL)) {
             throw new BizException(BizCode.FORBIDDEN, "仅批发商可操作本类批号");
@@ -384,5 +392,21 @@ public class WholBatchServiceImpl extends ServiceImpl<WholBatchMapper, WholBatch
         if (value != null && value.length() > max) {
             throw new BizException(BizCode.BAD_REQUEST, label + "长度不能超过 " + max + " 位");
         }
+    }
+
+    // 下架前加行锁，与下游 create 的 SELECT ... FOR UPDATE 串行
+    private WholBatch requireOwnedForUpdate(Long id) {
+        if (id == null) {
+            throw new BizException(BizCode.BAD_REQUEST, "缺少批号 id");
+        }
+        WholBatch exist = baseMapper.selectOne(new LambdaQueryWrapper<WholBatch>()
+                .eq(WholBatch::getId, id).last("FOR UPDATE"));
+        if (exist == null) {
+            throw new BizException(BizCode.BAD_REQUEST, "批号不存在");
+        }
+        if (!Objects.equals(exist.getNodeId(), AuthContext.nodeId())) {
+            throw new BizException(BizCode.FORBIDDEN, "无权操作他人批号");
+        }
+        return exist;
     }
 }

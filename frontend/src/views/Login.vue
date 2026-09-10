@@ -44,7 +44,7 @@
 </template>
 
 <script>
-import request, { setAuth } from '../util'
+import request, { setAuth, toast } from '../util'
 import { homePathOf } from '../modules'
 
 export default {
@@ -54,11 +54,12 @@ export default {
   },
   methods: {
     resetMsg() {
+      this.username = ''
       this.password = ''
     },
     async submit() {
       if (!this.username || !this.password) {
-        alert('请输入账号与密码')
+        toast('请输入账号与密码', 'warn')
         return
       }
       this.loading = true

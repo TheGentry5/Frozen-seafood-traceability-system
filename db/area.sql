@@ -7,7 +7,8 @@
 -- ============================================================
 USE seafood_trace;
 
--- 幂等：先清空再插入，可重复执行
+-- 可重复执行：清空后重灌（整体事务，避免部分失败留下残缺数据）
+START TRANSACTION;
 DELETE FROM city;
 DELETE FROM province;
 
@@ -90,3 +91,4 @@ INSERT INTO city (city_code, city_name, province_code) VALUES
 INSERT INTO city (city_code, city_name, province_code) VALUES
  ('460100','海口市','460000'), ('460200','三亚市','460000'), ('460300','三沙市','460000'),
  ('460400','儋州市','460000');
+COMMIT;

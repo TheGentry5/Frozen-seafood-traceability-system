@@ -33,9 +33,12 @@
 </template>
 
 <script>
-import * as echarts from 'echarts'
+import echarts from '../../charts'
 import { NODE_TYPES } from '../../modules'
 import request from '../../util'
+
+// 企业类型配色按 nodeType 固定，避免随查询顺序漂移
+const TYPE_COLOR = { 1: '#2f9e44', 2: '#1c7ed6', 3: '#e8590c', 4: '#862e9c' }
 
 export default {
   name: 'AdminStats',
@@ -50,6 +53,7 @@ export default {
     }
   },
   async created() {
+    window.addEventListener('resize', this.onResize)
     try {
       const res = (await request.get('/admin/stats')) || {}
       this.data = res
@@ -62,9 +66,13 @@ export default {
     }
   },
   beforeUnmount() {
+    window.removeEventListener('resize', this.onResize)
     this.charts.forEach((c) => c && c.dispose())
   },
   methods: {
+    onResize() {
+      this.charts.forEach((c) => c && c.resize())
+    },
     computeSummary() {
       const d = this.data
       const byType = {}
@@ -131,8 +139,7 @@ export default {
       })
     },
     renderType() {
-      const dist = this.data.typeDist || []
-      const palette = ['#1c7ed6', '#2f9e44', '#e8590c', '#862e9c']
+      const dist = [...(this.data.typeDist || [])].sort((a, b) => a.nodeType - b.nodeType)
       const chart = this.newChart(this.$refs.typeChart)
       chart.setOption({
         tooltip: { trigger: 'item', formatter: '{b}: {c} 家 ({d}%)' },
@@ -144,10 +151,10 @@ export default {
             radius: ['38%', '66%'],
             itemStyle: { borderColor: '#fff', borderWidth: 2 },
             label: { formatter: '{b}\n{c} 家' },
-            data: dist.map((x, i) => ({
+            data: dist.map((x) => ({
               name: NODE_TYPES[x.nodeType] || `类型${x.nodeType}`,
               value: x.count,
-              itemStyle: { color: palette[i % palette.length] }
+              itemStyle: { color: TYPE_COLOR[x.nodeType] || '#868e96' }
             }))
           }
         ]

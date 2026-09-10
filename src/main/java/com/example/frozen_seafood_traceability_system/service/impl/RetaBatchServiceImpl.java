@@ -30,7 +30,8 @@ import com.example.frozen_seafood_traceability_system.mapper.WholBatchMapper;
 import com.example.frozen_seafood_traceability_system.service.RetaBatchService;
 
 /**
- * 骨架占位：零售批号业务待实现（docs/开发实施文档.md §8 任务 9）。
+ * 零售商产品批号业务实现（docs/开发实施文档.md §6.3 reta 行）。
+ * 除零售侧 CRUD/状态流转外，还包含批发端对"待确认进场"零售批号的确认，确认时生成溯源码（任务 6）。
  */
 @Service
 public class RetaBatchServiceImpl extends ServiceImpl<RetaBatchMapper, RetaBatch> implements RetaBatchService {
@@ -80,6 +81,7 @@ public class RetaBatchServiceImpl extends ServiceImpl<RetaBatchMapper, RetaBatch
         }
 
         LambdaQueryWrapper<RetaBatch> queryWrapper = new LambdaQueryWrapper<RetaBatch>()
+                .eq(RetaBatch::getNodeId, AuthContext.nodeId())
                 .eq(RetaBatch::getBatchCode, batchCode.trim());
         if (excludeId != null) {
             queryWrapper.ne(RetaBatch::getId, excludeId);
@@ -90,6 +92,7 @@ public class RetaBatchServiceImpl extends ServiceImpl<RetaBatchMapper, RetaBatch
 
     // 创建批号产品
     @Override
+    @Transactional
     public void createMy(RetaBatch req) {
         requireReta();
         if (req.getBatchCode() == null || req.getBatchCode().trim().isEmpty()) {
@@ -97,6 +100,9 @@ public class RetaBatchServiceImpl extends ServiceImpl<RetaBatchMapper, RetaBatch
         }
 
         req.setBatchCode(req.getBatchCode().trim());
+        if (req.getProductName() == null || req.getProductName().trim().isEmpty()) {
+            throw new BizException(BizCode.BAD_REQUEST, "产品名称不能为空");
+        }
         checkTextLen(req.getBatchCode(), "产品批号", BATCH_CODE_MAX);
         checkTextLen(req.getProductName(), "产品名称", PRODUCT_NAME_MAX);
         checkTextLen(req.getProductType(), "产品类型", PRODUCT_TYPE_MAX);
@@ -125,7 +131,9 @@ public class RetaBatchServiceImpl extends ServiceImpl<RetaBatchMapper, RetaBatch
         if (req.getInBatchId() == null) {
             throw new BizException(BizCode.BAD_REQUEST, "请选择进场批发批号");
         }
-        WholBatch wholBatch = wholBatchMapper.selectById(req.getInBatchId());
+        // 锁定上游批发批号行，避免与批发端下架并发导致引用已下架批号
+        WholBatch wholBatch = wholBatchMapper.selectOne(new LambdaQueryWrapper<WholBatch>()
+                .eq(WholBatch::getId, req.getInBatchId()).last("FOR UPDATE"));
         if (wholBatch == null || !Objects.equals(wholBatch.getNodeId(), whol.getId())) {
             throw new BizException(BizCode.BAD_REQUEST, "所选批发批号不属于该批发商");
         }
@@ -310,10 +318,11 @@ public class RetaBatchServiceImpl extends ServiceImpl<RetaBatchMapper, RetaBatch
             throw new BizException(BizCode.BAD_REQUEST, "该批号不在待确认状态");
         }
 
-        // 被引用的本企业批发批号仍须处于"已确认"，避免确认已下架/删除的上游
-        WholBatch wholBatch = batch.getInBatchId() != null
-                ? wholBatchMapper.selectById(batch.getInBatchId())
-                : null;
+        // 被引用的本企业批发批号仍须处于"已确认"，避免确认已下架/删除的上游；加锁与批发端下架串行
+        WholBatch wholBatch = batch.getInBatchId() == null
+                ? null
+                : wholBatchMapper.selectOne(new LambdaQueryWrapper<WholBatch>()
+                        .eq(WholBatch::getId, batch.getInBatchId()).last("FOR UPDATE"));
         if (wholBatch == null || !Objects.equals(wholBatch.getStatus(), StatusConst.BATCH_CONFIRMED)) {
             throw new BizException(BizCode.BAD_REQUEST, "上游批发批号已不在确认状态，无法确认");
         }
@@ -364,7 +373,7 @@ public class RetaBatchServiceImpl extends ServiceImpl<RetaBatchMapper, RetaBatch
     // 校验当前登录者：未以节点身份登录 → 401；非批发商 → 403
     private void requireWhol() {
         if (!AuthContext.isNode()) {
-            throw new BizException(BizCode.UNAUTHORIZED, "请先以节点企业身份登录");
+            throw new BizException(BizCode.FORBIDDEN, "无权操作本类批号（仅节点企业）");
         }
         if (!Objects.equals(AuthContext.nodeType(), StatusConst.NODE_WHOL)) {
             throw new BizException(BizCode.FORBIDDEN, "仅批发商可确认本类批号");
@@ -374,7 +383,7 @@ public class RetaBatchServiceImpl extends ServiceImpl<RetaBatchMapper, RetaBatch
     // 校验当前登录者：未以节点身份登录 → 401；非批发商 → 403
     private void requireReta() {
         if (!AuthContext.isNode()) {
-            throw new BizException(BizCode.UNAUTHORIZED, "请先以节点企业身份登录");
+            throw new BizException(BizCode.FORBIDDEN, "无权操作本类批号（仅节点企业）");
         }
         if (!Objects.equals(AuthContext.nodeType(), StatusConst.NODE_RETA)) {
             throw new BizException(BizCode.FORBIDDEN, "仅零售商可操作本类批号");

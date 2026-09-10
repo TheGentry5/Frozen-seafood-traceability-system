@@ -61,7 +61,7 @@
       </div>
       <div class="cold-actions">
         <span v-if="!canReport" class="cold-tip">该批号已下架，不可继续填报</span>
-        <button class="btn btn-primary" :disabled="!canReport" @click="reportTemp">
+        <button class="btn btn-primary" :disabled="!canReport || reporting" @click="reportTemp">
           <i class="fas fa-plus"></i> 填报温度
         </button>
       </div>
@@ -78,7 +78,7 @@
 </template>
 
 <script>
-import * as echarts from 'echarts'
+import echarts from '../../charts'
 import MODULES, { statusText, statusTagClass } from '../../modules'
 import request, { toast } from '../../util'
 
@@ -94,20 +94,18 @@ export default {
       loading: true,
       tempRecords: [],
       tempForm: { temperature: '', humidity: '', recordTime: '', remark: '' },
-      tempChart: null
+      tempChart: null,
+      reporting: false
     }
   },
   computed: {
     detailCols() {
       const cols = (this.mod && this.mod.detailCols) || []
-      // 详情中状态单独展示，过滤 traceCode 已在面板处理
-      return cols
+      // 状态单独展示；零售溯源码由上方面板突出展示，避免重复
+      return cols.filter((c) => c.key !== 'traceCode')
     },
     canEdit() {
-      if (!this.mod) return false
-      const allowed =
-        this.mod.key === 'farm' ? [1] : [1]
-      return allowed.includes(this.row.status)
+      return !!(this.mod && this.row.status === 1)
     },
     canReport() {
       if (!this.row.id) return false
@@ -118,11 +116,16 @@ export default {
   created() {
     this.load()
     this.loadTemp()
+    window.addEventListener('resize', this.onResize)
   },
   beforeUnmount() {
+    window.removeEventListener('resize', this.onResize)
     if (this.tempChart) this.tempChart.dispose()
   },
   methods: {
+    onResize() {
+      if (this.tempChart) this.tempChart.resize()
+    },
     statusText(s) {
       return this.mod ? statusText(this.mod.key, s) : '—'
     },
@@ -203,10 +206,12 @@ export default {
       })
     },
     async reportTemp() {
+      if (this.reporting) return
       if (this.tempForm.temperature === '' || this.tempForm.temperature === null) {
         toast('请输入温度', 'warn')
         return
       }
+      this.reporting = true
       try {
         await request.post('/cold-chain/report', {
           batchType: this.mod.nodeType,
@@ -221,6 +226,8 @@ export default {
         this.loadTemp()
       } catch (e) {
         /* toast */
+      } finally {
+        this.reporting = false
       }
     }
   }

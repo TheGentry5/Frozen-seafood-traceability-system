@@ -84,6 +84,7 @@ public class ProcBatchServiceImpl extends ServiceImpl<ProcBatchMapper, ProcBatch
         }
 
         LambdaQueryWrapper<ProcBatch> qw = new LambdaQueryWrapper<ProcBatch>()
+                .eq(ProcBatch::getNodeId, AuthContext.nodeId())
                 .eq(ProcBatch::getBatchCode, batchCode.trim());
         if (excludeId != null) {
             qw.ne(ProcBatch::getId, excludeId);
@@ -94,6 +95,7 @@ public class ProcBatchServiceImpl extends ServiceImpl<ProcBatchMapper, ProcBatch
 
     // 创建批号产品
     @Override
+    @Transactional
     public void createMy(ProcBatch req) {
         requireProc();
         if (req.getBatchCode() == null || req.getBatchCode().trim().isEmpty()) {
@@ -101,6 +103,9 @@ public class ProcBatchServiceImpl extends ServiceImpl<ProcBatchMapper, ProcBatch
         }
 
         req.setBatchCode(req.getBatchCode().trim());
+        if (req.getProductName() == null || req.getProductName().trim().isEmpty()) {
+            throw new BizException(BizCode.BAD_REQUEST, "产品名称不能为空");
+        }
         checkTextLen(req.getBatchCode(), "产品批号", BATCH_CODE_MAX);
         checkTextLen(req.getProductName(), "产品名称", PRODUCT_NAME_MAX);
         checkTextLen(req.getProductType(), "产品类型", PRODUCT_TYPE_MAX);
@@ -130,7 +135,9 @@ public class ProcBatchServiceImpl extends ServiceImpl<ProcBatchMapper, ProcBatch
         if (req.getInBatchId() == null) {
             throw new BizException(BizCode.BAD_REQUEST, "请选择进场养殖批号");
         }
-        FarmBatch farmBatch = farmBatchMapper.selectById(req.getInBatchId());
+        // 锁定上游养殖批号行，避免与养殖端下架并发导致引用已下架批号
+        FarmBatch farmBatch = farmBatchMapper.selectOne(new LambdaQueryWrapper<FarmBatch>()
+                .eq(FarmBatch::getId, req.getInBatchId()).last("FOR UPDATE"));
         if (farmBatch == null || !Objects.equals(farmBatch.getNodeId(), farm.getId())) {
             throw new BizException(BizCode.BAD_REQUEST, "所选养殖批号不属于该企业");
         }
@@ -215,7 +222,7 @@ public class ProcBatchServiceImpl extends ServiceImpl<ProcBatchMapper, ProcBatch
     @Transactional
     public void offMy(Long id) {
         requireProc();
-        ProcBatch exist = requireOwned(id);
+        ProcBatch exist = requireOwnedForUpdate(id);
         if (!Objects.equals(exist.getStatus(), StatusConst.BATCH_CONFIRMED)) {
             throw new BizException(BizCode.BAD_REQUEST, "仅已确认状态可下架");
         }
@@ -227,7 +234,7 @@ public class ProcBatchServiceImpl extends ServiceImpl<ProcBatchMapper, ProcBatch
                 .in(WholBatch::getStatus, StatusConst.BATCH_NEW,
                         StatusConst.BATCH_WAIT_CONFIRM, StatusConst.BATCH_CONFIRMED));
         if (refs != null && refs > 0) {
-            throw new BizException(BizCode.BAD_REQUEST, "该批号已被下游引用，暂不能下架");
+            throw new BizException(BizCode.FORBIDDEN, "该批号已被下游引用，暂不能下架");
         }
 
         ProcBatch update = new ProcBatch();
@@ -325,9 +332,10 @@ public class ProcBatchServiceImpl extends ServiceImpl<ProcBatchMapper, ProcBatch
             throw new BizException(BizCode.BAD_REQUEST, "该批号不在待确认状态");
         }
 
-        // 被引用的本企业养殖批号仍须处于"已发布"，避免确认已下架/已删除的上游
+        // 被引用的本企业养殖批号仍须处于"已发布"，避免确认已下架/已删除的上游；加锁与养殖端下架串行
         FarmBatch farmBatch = batch.getInBatchId() != null
-                ? farmBatchMapper.selectById(batch.getInBatchId())
+                ? farmBatchMapper.selectOne(new LambdaQueryWrapper<FarmBatch>()
+                        .eq(FarmBatch::getId, batch.getInBatchId()).last("FOR UPDATE"))
                 : null;
         if (farmBatch == null || !Objects.equals(farmBatch.getStatus(), StatusConst.FARM_RELEASED)) {
             throw new BizException(BizCode.BAD_REQUEST, "上游养殖批号已不在发布状态，无法确认");
@@ -346,7 +354,7 @@ public class ProcBatchServiceImpl extends ServiceImpl<ProcBatchMapper, ProcBatch
     // 校验当前登录者：未以节点身份登录 → 401；非养殖企业 → 403
     private void requireFarm() {
         if (!AuthContext.isNode()) {
-            throw new BizException(BizCode.UNAUTHORIZED, "请先以节点企业身份登录");
+            throw new BizException(BizCode.FORBIDDEN, "无权操作本类批号（仅节点企业）");
         }
         if (!Objects.equals(AuthContext.nodeType(), StatusConst.NODE_FARM)) {
             throw new BizException(BizCode.FORBIDDEN, "仅养殖企业可确认本类批号");
@@ -356,7 +364,7 @@ public class ProcBatchServiceImpl extends ServiceImpl<ProcBatchMapper, ProcBatch
     // 校验当前登录者：未以节点身份登录 → 401；非加工企业 → 403
     private void requireProc() {
         if (!AuthContext.isNode()) {
-            throw new BizException(BizCode.UNAUTHORIZED, "请先以节点企业身份登录");
+            throw new BizException(BizCode.FORBIDDEN, "无权操作本类批号（仅节点企业）");
         }
         if (!Objects.equals(AuthContext.nodeType(), StatusConst.NODE_PROC)) {
             throw new BizException(BizCode.FORBIDDEN, "仅加工企业可操作本类批号");
@@ -384,5 +392,21 @@ public class ProcBatchServiceImpl extends ServiceImpl<ProcBatchMapper, ProcBatch
         if (value != null && value.length() > max) {
             throw new BizException(BizCode.BAD_REQUEST, label + "长度不能超过 " + max + " 位");
         }
+    }
+
+    // 下架前加行锁，与下游 create 的 SELECT ... FOR UPDATE 串行
+    private ProcBatch requireOwnedForUpdate(Long id) {
+        if (id == null) {
+            throw new BizException(BizCode.BAD_REQUEST, "缺少批号 id");
+        }
+        ProcBatch exist = baseMapper.selectOne(new LambdaQueryWrapper<ProcBatch>()
+                .eq(ProcBatch::getId, id).last("FOR UPDATE"));
+        if (exist == null) {
+            throw new BizException(BizCode.BAD_REQUEST, "批号不存在");
+        }
+        if (!Objects.equals(exist.getNodeId(), AuthContext.nodeId())) {
+            throw new BizException(BizCode.FORBIDDEN, "无权操作他人批号");
+        }
+        return exist;
     }
 }

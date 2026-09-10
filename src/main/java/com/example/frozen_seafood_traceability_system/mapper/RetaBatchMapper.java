@@ -1,7 +1,5 @@
 package com.example.frozen_seafood_traceability_system.mapper;
 
-import java.util.List;
-
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -28,9 +26,6 @@ public interface RetaBatchMapper extends BaseMapper<RetaBatch> {
     IPage<RetaBatch> waitConfirmList(IPage<?> page,
                                      @Param("inNodeId") Long inNodeId,
                                      @Param("keyword") String keyword);
-
-    /** 级联：某零售商无可选（终端环节），本方法预留 */
-    List<RetaBatch> selectSelectableByNode(@Param("nodeId") Long nodeId);
 
     /** 消费者溯源：按溯源码查零售批号（联出批发企业名） */
     RetaBatch selectByTraceCode(@Param("traceCode") String traceCode);

@@ -14,7 +14,10 @@ export function toast(msg, type = 'info') {
 }
 
 /* ---------------- 本地存储 ---------------- */
+let redirecting = false
+
 export function setAuth(token, user) {
+  redirecting = false
   localStorage.setItem(TOKEN_KEY, token)
   localStorage.setItem(USER_KEY, JSON.stringify(user))
 }
@@ -41,7 +44,7 @@ export function isLogin() {
 }
 
 /* ---------------- axios 实例 ---------------- */
-const request = axios.create({ baseURL: '/api', timeout: 15000 })
+const request = axios.create({ baseURL: import.meta.env.VITE_API_BASE || '/api', timeout: 15000 })
 
 request.interceptors.request.use((config) => {
   const token = getToken()
@@ -55,8 +58,11 @@ request.interceptors.response.use(
     if (res.code === 200) return res.data
     if (res.code === 401) {
       clearAuth()
-      toast(res.msg || '登录已失效，请重新登录', 'warn')
-      window.location.hash = '#/login'
+      if (!redirecting) {
+        redirecting = true
+        toast(res.msg || '登录已失效，请重新登录', 'warn')
+        window.location.hash = '#/login'
+      }
       return Promise.reject(new Error(res.msg))
     }
     toast(res.msg || '请求失败', 'error')

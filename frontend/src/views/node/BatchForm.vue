@@ -171,8 +171,12 @@ export default {
   },
   methods: {
     async loadProvinces() {
-      const res = await request.get('/area/provinces')
-      this.cascade.provinces = res || []
+      try {
+        const res = await request.get('/area/provinces')
+        this.cascade.provinces = res || []
+      } catch (e) {
+        this.cascade.provinces = []
+      }
     },
     async onProvince() {
       this.cascade.cityCode = ''
@@ -182,8 +186,12 @@ export default {
       this.cascade.batches = []
       this.cascade.inProductName = ''
       if (!this.cascade.provinceCode) return
-      const res = await request.get(`/area/cities/${this.cascade.provinceCode}`)
-      this.cascade.cities = res || []
+      try {
+        const res = await request.get(`/area/cities/${this.cascade.provinceCode}`)
+        this.cascade.cities = res || []
+      } catch (e) {
+        this.cascade.cities = []
+      }
     },
     async onCity() {
       this.cascade.enterpriseId = ''
@@ -192,24 +200,32 @@ export default {
       this.cascade.batches = []
       this.cascade.inProductName = ''
       if (!this.cascade.cityCode) return
-      const res = await request.get('/upstream/enterprises', {
-        params: {
-          nodeType: this.mod.upstream.nodeType,
-          provinceCode: this.cascade.provinceCode,
-          cityCode: this.cascade.cityCode
-        }
-      })
-      this.cascade.enterprises = res || []
+      try {
+        const res = await request.get('/upstream/enterprises', {
+          params: {
+            nodeType: this.mod.upstream.nodeType,
+            provinceCode: this.cascade.provinceCode,
+            cityCode: this.cascade.cityCode
+          }
+        })
+        this.cascade.enterprises = res || []
+      } catch (e) {
+        this.cascade.enterprises = []
+      }
     },
     async onEnterprise() {
       this.cascade.batchId = ''
       this.cascade.batches = []
       this.cascade.inProductName = ''
       if (!this.cascade.enterpriseId) return
-      const res = await request.get('/upstream/batches', {
-        params: { nodeId: this.cascade.enterpriseId, nodeType: this.mod.upstream.nodeType }
-      })
-      this.cascade.batches = res || []
+      try {
+        const res = await request.get('/upstream/batches', {
+          params: { nodeId: this.cascade.enterpriseId, nodeType: this.mod.upstream.nodeType }
+        })
+        this.cascade.batches = res || []
+      } catch (e) {
+        this.cascade.batches = []
+      }
     },
     onBatch() {
       const picked = this.cascade.batches.find((b) => b.id === Number(this.cascade.batchId))
@@ -262,19 +278,32 @@ export default {
     },
     async checkUnique() {
       const code = this.form.batchCode
-      if (!code || this.isEdit) return
-      const res = await request.get(`/${this.mod.key}/batch/exists`, {
-        params: { batchCode: code }
-      })
-      this.uniqueMsg = res ? '该产品批号已存在，请更换' : '产品批号可用'
-      this.uniqueError = !!res
-    },
-    async submit() {
-      if (this.uniqueError) {
-        toast('产品批号已被占用', 'warn')
+      if (!code || this.isEdit) {
+        this.uniqueMsg = ''
+        this.uniqueError = false
         return
       }
+      try {
+        const res = await request.get(`/${this.mod.key}/batch/exists`, {
+          params: { batchCode: code }
+        })
+        this.uniqueMsg = res ? '该产品批号已存在，请更换' : '产品批号可用'
+        this.uniqueError = !!res
+      } catch (e) {
+        // 校验请求失败不阻塞提交，唯一性交由后端唯一索引兜底
+        this.uniqueMsg = ''
+        this.uniqueError = false
+      }
+    },
+    async submit() {
       if (!this.validate()) return
+      if (!this.isEdit) {
+        await this.checkUnique()
+        if (this.uniqueError) {
+          toast('产品批号已被占用', 'warn')
+          return
+        }
+      }
       this.submitting = true
       try {
         const payload = this.buildPayload()

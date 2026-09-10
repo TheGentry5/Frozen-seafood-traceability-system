@@ -147,15 +147,23 @@ export default {
     },
     async doDelete(row) {
       if (!window.confirm(`确定删除产品批号 ${row.batchCode} 吗？`)) return
-      await request.delete(`/${this.mod.key}/batch/${row.id}`)
-      toast('删除成功', 'success')
-      this.load(this.rows.length === 1 && this.page > 1 ? this.page - 1 : this.page)
+      try {
+        await request.delete(`/${this.mod.key}/batch/${row.id}`)
+        toast('删除成功', 'success')
+        this.load(this.rows.length === 1 && this.page > 1 ? this.page - 1 : this.page)
+      } catch (e) {
+        /* toast */
+      }
     },
     async doOff(row) {
       if (!window.confirm(`确定下架产品批号 ${row.batchCode} 吗？下架后不再可被选用与浏览。`)) return
-      await request.put(`/${this.mod.key}/batch/${row.id}/off`)
-      toast('已下架', 'success')
-      this.load(this.page)
+      try {
+        await request.put(`/${this.mod.key}/batch/${row.id}/off`)
+        toast('已下架', 'success')
+        this.load(this.page)
+      } catch (e) {
+        /* toast */
+      }
     }
   }
 }

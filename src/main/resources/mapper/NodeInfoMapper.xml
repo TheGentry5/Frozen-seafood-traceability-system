@@ -12,13 +12,16 @@
         WHERE n.id = #{id}
     </select>
 
-    <!-- 上游企业下拉：启用中 + 类型过滤 + 可选省市过滤 -->
+    <!-- 上游企业下拉：启用中 + 类型过滤 + 可选省市过滤，联出中文省市名 -->
     <select id="upstreamList" resultType="com.example.frozen_seafood_traceability_system.entity.NodeInfo">
-        SELECT * FROM node_info
-        WHERE node_type = #{nodeType} AND status = 1
-        <if test="provinceCode != null and provinceCode != ''">AND province_code = #{provinceCode}</if>
-        <if test="cityCode != null and cityCode != ''">AND city_code = #{cityCode}</if>
-        ORDER BY node_code
+        SELECT n.*, p.province_name, c.city_name
+        FROM node_info n
+        LEFT JOIN province p ON n.province_code = p.province_code
+        LEFT JOIN city c ON n.city_code = c.city_code
+        WHERE n.node_type = #{nodeType} AND n.status = 1
+        <if test="provinceCode != null and provinceCode != ''">AND n.province_code = #{provinceCode}</if>
+        <if test="cityCode != null and cityCode != ''">AND n.city_code = #{cityCode}</if>
+        ORDER BY n.node_code
     </select>
 
     <select id="selectPageWithArea" resultType="com.example.frozen_seafood_traceability_system.entity.NodeInfo">
@@ -39,7 +42,8 @@
     <select id="selectMonthTrend" resultType="map">
         SELECT MONTH(create_time) AS month, COUNT(*) AS count
         FROM node_info
-        WHERE YEAR(create_time) = #{year}
+        WHERE create_time &gt;= MAKEDATE(#{year}, 1)
+          AND create_time &lt; MAKEDATE(#{year} + 1, 1)
         GROUP BY MONTH(create_time)
     </select>
 

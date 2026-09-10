@@ -37,7 +37,7 @@
 </template>
 
 <script>
-import MODULES from '../../modules'
+import MODULES, { NODE_TYPES } from '../../modules'
 
 export default {
   name: 'NodeHome',
@@ -51,12 +51,7 @@ export default {
   },
   computed: {
     chainSteps() {
-      return [
-        { type: 1, name: '养殖企业' },
-        { type: 2, name: '加工企业' },
-        { type: 3, name: '批发商' },
-        { type: 4, name: '零售商' }
-      ]
+      return Object.entries(NODE_TYPES).map(([type, name]) => ({ type: Number(type), name }))
     }
   }
 }

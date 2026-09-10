@@ -6,12 +6,16 @@ spring:
     active: dev
   application:
     name: frozen-seafood-traceability-system
+  mvc:
+    throw-exception-if-no-handler-found: true
+  web:
+    resources:
+      add-mappings: false
   datasource:
-    druid:
-      driver-class-name: ${traceability.datasource.driver-class-name}
-      url: jdbc:mysql://${traceability.datasource.host}:${traceability.datasource.port}/${traceability.datasource.database}?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&useSSL=false&allowPublicKeyRetrieval=true
-      username: ${traceability.datasource.username}
-      password: ${traceability.datasource.password}
+    driver-class-name: ${traceability.datasource.driver-class-name}
+    url: jdbc:mysql://${traceability.datasource.host}:${traceability.datasource.port}/${traceability.datasource.database}?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${traceability.datasource.username}
+    password: ${traceability.datasource.password}
 
 mybatis-plus:
   configuration:

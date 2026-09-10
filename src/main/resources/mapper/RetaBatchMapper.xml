@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.example.frozen_seafood_traceability_system.mapper.RetaBatchMapper">
-    <!-- 待补充：selectPageForNode / waitConfirmList / selectSelectableByNode / selectByTraceCode（docs/开发实施文档.md 附录 D） -->
-    <!-- 本企业批号分页（status 为空时排除已下架 4），联出上游加工批号与企业名 -->
+    <!-- 本企业批号分页（status 为空时排除已下架 4），联出上游批发批号与企业名 -->
     <select id="selectPageForNode" resultType="com.example.frozen_seafood_traceability_system.entity.RetaBatch">
         SELECT b.*, ub.batch_code AS in_batch_code, un.node_name AS in_node_name
         FROM reta_batch b
@@ -17,12 +16,14 @@
         ORDER BY b.create_time DESC
     </select>
 
-    <!-- 详情：按 id 联出上游批发批号与企业名 -->
+    <!-- 详情：按 id 联出上游批发批号与企业名，并回填本企业名 n.node_name -->
     <select id="selectByIdForNode" resultType="com.example.frozen_seafood_traceability_system.entity.RetaBatch">
-        SELECT b.*, ub.batch_code AS in_batch_code, un.node_name AS in_node_name
+        SELECT b.*, ub.batch_code AS in_batch_code, un.node_name AS in_node_name,
+               n.node_name
         FROM reta_batch b
         LEFT JOIN whol_batch ub ON b.in_batch_id = ub.id
         LEFT JOIN node_info un  ON b.in_node_id = un.id
+        LEFT JOIN node_info n   ON b.node_id = n.id
         WHERE b.id = #{id}
     </select>
 

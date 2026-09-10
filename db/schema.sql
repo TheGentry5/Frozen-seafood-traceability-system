@@ -6,6 +6,17 @@
 CREATE DATABASE IF NOT EXISTS seafood_trace DEFAULT CHARACTER SET utf8mb4;
 USE seafood_trace;
 
+-- 可重复执行：先删旧表（表间无物理外键，删除顺序不敏感）
+DROP TABLE IF EXISTS cold_chain_record;
+DROP TABLE IF EXISTS reta_batch;
+DROP TABLE IF EXISTS whol_batch;
+DROP TABLE IF EXISTS proc_batch;
+DROP TABLE IF EXISTS farm_batch;
+DROP TABLE IF EXISTS node_info;
+DROP TABLE IF EXISTS city;
+DROP TABLE IF EXISTS province;
+DROP TABLE IF EXISTS admin;
+
 -- ============ 系统管理员 ============
 CREATE TABLE admin (
   id          BIGINT PRIMARY KEY AUTO_INCREMENT,
@@ -46,7 +57,9 @@ CREATE TABLE node_info (
   update_time   DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uk_node_code (node_code),
   KEY idx_node_type (node_type),
-  KEY idx_node_area (province_code, city_code)
+  KEY idx_node_area (province_code, city_code),
+  KEY idx_node_city (city_code),
+  KEY idx_node_create_time (create_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============ 养殖企业产品批号 ============
@@ -61,8 +74,7 @@ CREATE TABLE farm_batch (
   status          TINYINT NOT NULL DEFAULT 1,
   create_time     DATETIME DEFAULT CURRENT_TIMESTAMP,
   update_time     DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY uk_farm_batch_code (batch_code),
-  KEY idx_farm_node (node_id),
+  UNIQUE KEY uk_farm_batch_code (node_id, batch_code),
   KEY idx_farm_node_status (node_id, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -84,10 +96,9 @@ CREATE TABLE proc_batch (
   status          TINYINT NOT NULL DEFAULT 1,
   create_time     DATETIME DEFAULT CURRENT_TIMESTAMP,
   update_time     DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY uk_proc_batch_code (batch_code),
-  KEY idx_proc_node (node_id),
+  UNIQUE KEY uk_proc_batch_code (node_id, batch_code),
   KEY idx_proc_node_status (node_id, status),
-  KEY idx_proc_in_node (in_node_id),
+  KEY idx_proc_in_node_status (in_node_id, status),
   KEY idx_proc_in_batch (in_batch_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -107,10 +118,9 @@ CREATE TABLE whol_batch (
   status          TINYINT NOT NULL DEFAULT 1,
   create_time     DATETIME DEFAULT CURRENT_TIMESTAMP,
   update_time     DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY uk_whol_batch_code (batch_code),
-  KEY idx_whol_node (node_id),
+  UNIQUE KEY uk_whol_batch_code (node_id, batch_code),
   KEY idx_whol_node_status (node_id, status),
-  KEY idx_whol_in_node (in_node_id),
+  KEY idx_whol_in_node_status (in_node_id, status),
   KEY idx_whol_in_batch (in_batch_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -131,11 +141,10 @@ CREATE TABLE reta_batch (
   status          TINYINT NOT NULL DEFAULT 1,
   create_time     DATETIME DEFAULT CURRENT_TIMESTAMP,
   update_time     DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY uk_reta_batch_code (batch_code),
+  UNIQUE KEY uk_reta_batch_code (node_id, batch_code),
   UNIQUE KEY uk_reta_trace_code (trace_code),
-  KEY idx_reta_node (node_id),
   KEY idx_reta_node_status (node_id, status),
-  KEY idx_reta_in_node (in_node_id),
+  KEY idx_reta_in_node_status (in_node_id, status),
   KEY idx_reta_in_batch (in_batch_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

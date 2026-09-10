@@ -8,6 +8,7 @@ export const NODE_TYPES = {
 
 export const FARM_STATUS_TEXT = { 1: '待发布', 2: '已发布', 3: '已下架' }
 export const CHAIN_STATUS_TEXT = { 1: '新建', 2: '待确认', 3: '已确认', 4: '已下架' }
+export const NODE_STATUS_TEXT = { 1: '启用', 2: '停用' }
 
 export function statusText(module, status) {
   if (!status) return '—'
@@ -44,7 +45,8 @@ const MODULES = {
     showProductType: false,
     statusOptions: [
       { value: 1, label: '待发布', acts: ['update', 'delete'] },
-      { value: 2, label: '已发布', acts: ['off'] }
+      { value: 2, label: '已发布', acts: ['off'] },
+      { value: 3, label: '已下架', acts: [] }
     ],
     // 列表列（操作列/状态列由页面统一追加）
     listCols: [
@@ -77,7 +79,8 @@ const MODULES = {
     statusOptions: [
       { value: 1, label: '新建', acts: ['update', 'delete'] },
       { value: 2, label: '待确认', acts: [] },
-      { value: 3, label: '已确认', acts: ['off'] }
+      { value: 3, label: '已确认', acts: ['off'] },
+      { value: 4, label: '已下架', acts: [] }
     ],
     listCols: [
       { key: 'batchCode', label: '产品批号' },
@@ -116,7 +119,8 @@ const MODULES = {
     statusOptions: [
       { value: 1, label: '新建', acts: ['update', 'delete'] },
       { value: 2, label: '待确认', acts: [] },
-      { value: 3, label: '已确认', acts: ['off'] }
+      { value: 3, label: '已确认', acts: ['off'] },
+      { value: 4, label: '已下架', acts: [] }
     ],
     listCols: [
       { key: 'batchCode', label: '产品批号' },
@@ -154,7 +158,8 @@ const MODULES = {
     statusOptions: [
       { value: 1, label: '新建', acts: ['update', 'delete'] },
       { value: 2, label: '待确认', acts: [] },
-      { value: 3, label: '已确认', acts: ['off'] }
+      { value: 3, label: '已确认', acts: ['off'] },
+      { value: 4, label: '已下架', acts: [] }
     ],
     listCols: [
       { key: 'batchCode', label: '产品批号' },

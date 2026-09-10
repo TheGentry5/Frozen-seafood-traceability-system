@@ -3,6 +3,7 @@ package com.example.frozen_seafood_traceability_system.service.impl;
 import java.util.Objects;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -68,6 +69,7 @@ public class FarmBatchServiceImpl extends ServiceImpl<FarmBatchMapper, FarmBatch
         }
 
         LambdaQueryWrapper<FarmBatch> qw = new LambdaQueryWrapper<FarmBatch>()
+                .eq(FarmBatch::getNodeId, AuthContext.nodeId())
                 .eq(FarmBatch::getBatchCode, batchCode.trim());
         if (excludeId != null) {
             qw.ne(FarmBatch::getId, excludeId);
@@ -86,6 +88,9 @@ public class FarmBatchServiceImpl extends ServiceImpl<FarmBatchMapper, FarmBatch
         }
 
         req.setBatchCode(req.getBatchCode().trim());
+        if (req.getProductName() == null || req.getProductName().trim().isEmpty()) {
+            throw new BizException(BizCode.BAD_REQUEST, "产品品种不能为空");
+        }
         checkTextLen(req.getBatchCode(), "产品批号", BATCH_CODE_MAX);
         checkTextLen(req.getProductName(), "产品品种", PRODUCT_NAME_MAX);
         checkTextLen(req.getInspectionCert(), "检验检疫合格证明", INSPECTION_CERT_MAX);
@@ -101,7 +106,11 @@ public class FarmBatchServiceImpl extends ServiceImpl<FarmBatchMapper, FarmBatch
         row.setInspectionCert(req.getInspectionCert());
         row.setInspector(req.getInspector());
         row.setStatus(StatusConst.FARM_WAIT_RELEASE);
-        baseMapper.insert(row);
+        try {
+            baseMapper.insert(row);
+        } catch (DuplicateKeyException e) {
+            throw new BizException(BizCode.CONFLICT, "该产品批号已存在");
+        }
     }
 
     // 更新批号产品
@@ -137,7 +146,7 @@ public class FarmBatchServiceImpl extends ServiceImpl<FarmBatchMapper, FarmBatch
     @Transactional
     public void offMy(Long id) {
         requireFarm();
-        FarmBatch exist = requireOwned(id);
+        FarmBatch exist = requireOwnedForUpdate(id);
         if (exist.getStatus() != StatusConst.FARM_RELEASED) {
             throw new BizException(BizCode.BAD_REQUEST, "仅已发布状态可下架");
         }
@@ -148,7 +157,7 @@ public class FarmBatchServiceImpl extends ServiceImpl<FarmBatchMapper, FarmBatch
                 .in(ProcBatch::getStatus, StatusConst.BATCH_NEW,
                         StatusConst.BATCH_WAIT_CONFIRM, StatusConst.BATCH_CONFIRMED));
         if (refs != null && refs > 0) {
-            throw new BizException(BizCode.BAD_REQUEST, "该批号已被下游引用，暂不能下架");
+            throw new BizException(BizCode.FORBIDDEN, "该批号已被下游引用，暂不能下架");
         }
 
         FarmBatch update = new FarmBatch();
@@ -200,7 +209,7 @@ public class FarmBatchServiceImpl extends ServiceImpl<FarmBatchMapper, FarmBatch
     // 校验当前登录者：未以节点身份登录 → 401；非养殖企业 → 403
     private void requireFarm() {
         if (!AuthContext.isNode()) {
-            throw new BizException(BizCode.UNAUTHORIZED, "请先以节点企业身份登录");
+            throw new BizException(BizCode.FORBIDDEN, "无权操作本类批号（仅节点企业）");
         }
         if (!Objects.equals(AuthContext.nodeType(), StatusConst.NODE_FARM)) {
             throw new BizException(BizCode.FORBIDDEN, "仅养殖企业可操作本类批号");
@@ -227,5 +236,21 @@ public class FarmBatchServiceImpl extends ServiceImpl<FarmBatchMapper, FarmBatch
         if (value != null && value.length() > max) {
             throw new BizException(BizCode.BAD_REQUEST, label + "长度不能超过 " + max + " 位");
         }
+    }
+
+    // 下架前加行锁，与下游 create 的 SELECT ... FOR UPDATE 串行，避免"边下架边被引用"
+    private FarmBatch requireOwnedForUpdate(Long id) {
+        if (id == null) {
+            throw new BizException(BizCode.BAD_REQUEST, "缺少批号 id");
+        }
+        FarmBatch exist = baseMapper.selectOne(new LambdaQueryWrapper<FarmBatch>()
+                .eq(FarmBatch::getId, id).last("FOR UPDATE"));
+        if (exist == null) {
+            throw new BizException(BizCode.BAD_REQUEST, "批号不存在");
+        }
+        if (!Objects.equals(exist.getNodeId(), AuthContext.nodeId())) {
+            throw new BizException(BizCode.FORBIDDEN, "无权操作他人批号");
+        }
+        return exist;
     }
 }

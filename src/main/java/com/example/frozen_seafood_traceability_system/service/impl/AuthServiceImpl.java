@@ -115,7 +115,8 @@ public class AuthServiceImpl implements AuthService {
         update.setId(node.getId());
         update.setPassword(md5(newPwd));
         nodeInfoMapper.updateById(update);
-        tokenStore.remove(AuthContext.getToken());
+        // 密码已变更：吊销该企业全部在线 token
+        tokenStore.removeBySubject("NODE", node.getId());
         AuthContext.clear();
     }
 
@@ -130,7 +131,7 @@ public class AuthServiceImpl implements AuthService {
     private NodeInfo requireNode() {
         Principal principal = AuthContext.get();
         if (principal == null || !"NODE".equals(principal.getType())) {
-            throw new BizException(BizCode.UNAUTHORIZED, "请先以节点企业身份登录");
+            throw new BizException(BizCode.FORBIDDEN, "请先以节点企业身份登录");
         }
         NodeInfo node = nodeInfoMapper.selectById(principal.getId());
         if (node == null) {

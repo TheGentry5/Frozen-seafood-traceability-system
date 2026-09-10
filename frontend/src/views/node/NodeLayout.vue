@@ -32,11 +32,11 @@
           </router-link>
         </span>
       </div>
-      <router-view />
+      <router-view :key="$route.fullPath" />
     </section>
 
     <!-- 更新密码弹窗 -->
-    <div class="mask" v-if="showPwd" @click.self="showPwd = false">
+    <div class="mask" v-if="showPwd" @click.self="closePwd">
       <div class="dialog">
         <div class="dialog-title">更新密码</div>
         <div class="form-item" style="margin-bottom: 12px">
@@ -52,7 +52,7 @@
           <input v-model="pwdForm.confirmPwd" type="password" placeholder="再次输入新密码" />
         </div>
         <div class="dialog-footer">
-          <button class="btn btn-gray" @click="showPwd = false">取消</button>
+          <button class="btn btn-gray" @click="closePwd">取消</button>
           <button class="btn btn-primary" @click="doUpdatePwd" :disabled="pwdLoading">
             {{ pwdLoading ? '提交中...' : '确认修改' }}
           </button>
@@ -84,6 +84,10 @@ export default {
     if (this.mod) this.base = '/' + this.mod.key
   },
   methods: {
+    closePwd() {
+      this.showPwd = false
+      this.pwdForm = { oldPwd: '', newPwd: '', confirmPwd: '' }
+    },
     async logout() {
       try {
         await request.post('/logout')
