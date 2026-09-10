@@ -9,9 +9,10 @@
 - `frontend/node_modules/` 与 `frontend/dist/` 已通过 `frontend/.gitignore` 忽略并从索引移除。`npm install` / `npm run build` 仅在必要时执行。
 
 ## 命令
+- 一键启动（同时起后端+前端）：`.\run.ps1`（参数 `-Mode both|backend|frontend`、`-InitDb`、`-Install`、`-CheckOnly`；UTF-8 with BOM，须用 PowerShell 运行）。文件编码含非 ASCII 时 PowerShell 5.1 需 BOM，改动该脚本后请保留 BOM。
 - 后端编译：`.\mvnw.cmd -DskipTests compile`（PowerShell）/ `./mvnw -DskipTests compile`
 - 后端运行：`.\mvnw.cmd spring-boot:run`
-- 后端测试：`.\mvnw.cmd test` —— 只有一个 `contextLoads`，会启动完整上下文，依赖 MySQL 与 `dev` profile。
+- 后端测试：`.\mvnw.cmd test` —— 依赖 MySQL 与 `dev` profile。含 `contextLoads` 及集成测试套件（`AuthIntegrationTest`/`BatchFlowIntegrationTest`/`AdminNodeIntegrationTest`/`HttpContractIntegrationTest`，基于 MockMvc，走真实 SQL 且每用例事务回滚、测试前重建种子数据，可重复运行不污染数据库）。
 - 前端（在 `frontend/` 下）：`npm run dev`、`npm run build`、`npm run preview`。没有 lint / typecheck / test 脚本。
 
 ## 数据源配置
